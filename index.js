@@ -4,107 +4,135 @@ const mapWidth = 15;
 const worldMap = Array(mapHeight * mapWidth).fill(0);
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');
+const viewWidth = 640;
+const viewHeight = 480;
 
 let gameLoop;
+let cameraX;
 let fps = 60;
 
 let maxDist = 800;
-let hitDist = 0;
-let dist = 0.0;
-let hit = false;
 
 const Player = {
 	position: { x: 0, y: 0 },
+	direction: {x: 0, y: 0},
+	mag: 0,
 	mousePosition: { x: 0.0, y: 0.0 },
 	mouseCell: { x: 0, y: 0 },
 	velocity: { x: 0, y: 0 },
 	speed: 4,
 	width: cellSize / 2,
 	height: cellSize / 2,
+	rays: [],
+	plane: {x: 0, y: 0.66},
 };
 
-const Ray = {
-	position: { x: 0, y: 0 },
-	posRelToCell: { x: 0.0, y: 0.0 },
-	mag: 0,
-	direction: { x: 0.0, y: 0.0 },
-	unitStepSize: { x: 0, y: 0 },
-	currentCell: { x: 0, y: 0 },
-	cellToCheck: { x: 0, y: 0 },
-	Length1D: { x: 0, y: 0 },
-	stepDirection: { x: 0, y: 0 },
-};
+function createRay()
+{
+	return {
+		position: { x: 0, y: 0 },
+		posRelToCell: { x: 0.0, y: 0.0 },
+		mag: 0,
+		direction: { x: 0.0, y: 0.0 },
+		unitStepSize: { x: 0, y: 0 },
+		currentCell: { x: 0, y: 0 },
+		cellToCheck: { x: 0, y: 0 },
+		Length1D: { x: 0, y: 0 },
+		stepDirection: { x: 0, y: 0 },
+		hit: false,
+		hitDist: 0,
+	};
+}
 
-function calculateRayProps() {
-	Ray.position = Player.position;
+function updateRayProps() {
 
-	//Current cell that the ray stays withing ex: (1, 5)
-	Ray.currentCell.x = parseInt(Player.position.x / cellSize);
-	Ray.currentCell.y = parseInt(Player.position.y / cellSize);
-
-	/* Used to increment via a step value to check for collision */
-	Ray.cellToCheck = Ray.currentCell;
-
-	/* A floating point value of how much the ray position lays within a cell (0.0 - 0.99) */ 
-	Ray.posRelToCell.x = ((Ray.position.x - cellSize * Ray.currentCell.x) / cellSize
-	);
-	Ray.posRelToCell.y = ((Ray.position.y - cellSize * Ray.currentCell.y) / cellSize
-	);
-
-	//Calculates the magnitude of the ray
-	Ray.mag = Math.sqrt(Math.pow(Ray.position.x - Player.mousePosition.x, 2) + Math.pow(Ray.position.y - Player.mousePosition.y, 2)
-	);
-
-	//Calculates a unit vector for the ray (values between 0.0 - 1.0)
-	Ray.direction.x = ((Player.mousePosition.x - Ray.position.x) / Ray.mag
-	);
-	Ray.direction.y = ((Player.mousePosition.y - Ray.position.y) / Ray.mag
-	);
-
-	/* unitStepSize is a vector containing scalar values for the ray given its slope.
-	This value can be used to find the magnitude of a vector per unit movement along each axis.
-	The approach to this step size calculation was used from lodev.org/raycasting */
-	Ray.unitStepSize.x = (Math.abs(1 / Ray.direction.x));
-	Ray.unitStepSize.y = (Math.abs(1 / Ray.direction.y));
-
-	/*
-		Priming the RayLength1D property 
-
-		We need to prime the RayLength property to prepare for incrementing by a cell size.
-		This can be done by checking the position of the ray in a given cell & storing the initial length
-		to the nearest relative cell (This cell varies on the direction of the vector)
-
-		Since the movement per unit doesn't change as long as our slope stays the same, we do this calc
-		to 'align' our inital lengths with the cooresponding axis
-	*/
-
-	if(Ray.direction.x < 0)
+	for(r in Player.rays)
 	{
-		Ray.stepDirection.x = -1;
-		Ray.Length1D.x = (cellSize * Ray.posRelToCell.x) * Ray.unitStepSize.x;
-	}
-	else
-	{
-		Ray.stepDirection.x = 1;
-		Ray.Length1D.x = ((1.0 - Ray.posRelToCell.x) * cellSize) * Ray.unitStepSize.x;
-	}
+		let Ray = Player.rays[r];
 
-	if(Ray.direction.y < 0)
-	{
-		Ray.stepDirection.y = -1;
-		Ray.Length1D.y = (cellSize * Ray.posRelToCell.y) * Ray.unitStepSize.y;
-	}
-	else
-	{
-		Ray.stepDirection.y = 1;
-		Ray.Length1D.y = ((1.0 - Ray.posRelToCell.y) * cellSize) * Ray.unitStepSize.y;
-	}
+		Ray.position = Player.position;
 
-	if(!isNaN(Ray.Length1D.x) && !isNaN(Ray.Length1D.y))
-	{
-		//console.log(`${Ray.Length1D.x}, ${Ray.Length1D.y}`);
-		checkForCollision();
+		//Current cell that the ray stays withing ex: (1, 5)
+		Ray.currentCell.x = parseInt(Player.position.x / cellSize);
+		Ray.currentCell.y = parseInt(Player.position.y / cellSize);
+	
+		/* Used to increment via a step value to check for collision */
+		Ray.cellToCheck = Ray.currentCell;
+	
+		/* A floating point value of how much the ray position lays within a cell (0.0 - 0.99) */ 
+		Ray.posRelToCell.x = ((Ray.position.x - cellSize * Ray.currentCell.x) / cellSize);
+		Ray.posRelToCell.y = ((Ray.position.y - cellSize * Ray.currentCell.y) / cellSize);
+	
+		//Calculates the magnitude of the ray
+		Ray.mag = Math.sqrt(Math.pow(Ray.position.x - Player.mousePosition.x, 2) + Math.pow(Ray.position.y - Player.mousePosition.y, 2));
+	
+		/*
+			Since we are using each ray to render a column of pixels on the screen,
+			we need to cast n rays (n = the viewports width) each with a slightly different angle 
+			to create a FOV (Field of View).
+
+			Don't quite understand the implication of the plane just yet so....
+			We will get back to that.
+
+		*/
+		cameraX = 2 * r / viewWidth - 1;
+		Ray.direction.x = Player.direction.x + Player.plane.x * cameraX;
+		Ray.direction.y = Player.direction.y + Player.plane.y * cameraX;
+	
+		/* unitStepSize is a vector containing scalar values for the ray given its slope.
+		This value can be used to find the magnitude of a vector per unit movement along each axis.
+		The approach to this step size calculation was used from lodev.org/raycasting */
+		Ray.unitStepSize.x = (Math.abs(1 / Ray.direction.x));
+		Ray.unitStepSize.y = (Math.abs(1 / Ray.direction.y));
+	
+		/*
+			Priming the RayLength1D property 
+	
+			We need to prime the RayLength property to prepare for incrementing by a cell size.
+			This can be done by checking the position of the ray in a given cell & storing the initial length
+			to the nearest relative cell (This cell varies on the direction of the vector)
+	
+			Since the movement per unit doesn't change as long as our slope stays the same, we do this calc
+			to 'align' our inital lengths with the cooresponding axis
+		*/
+	
+		if(Ray.direction.x < 0)
+		{
+			Ray.stepDirection.x = -1;
+			Ray.Length1D.x = (cellSize * Ray.posRelToCell.x) * Ray.unitStepSize.x;
+		}
+		else
+		{
+			Ray.stepDirection.x = 1;
+			Ray.Length1D.x = ((1.0 - Ray.posRelToCell.x) * cellSize) * Ray.unitStepSize.x;
+		}
+	
+		if(Ray.direction.y < 0)
+		{
+			Ray.stepDirection.y = -1;
+			Ray.Length1D.y = (cellSize * Ray.posRelToCell.y) * Ray.unitStepSize.y;
+		}
+		else
+		{
+			Ray.stepDirection.y = 1;
+			Ray.Length1D.y = ((1.0 - Ray.posRelToCell.y) * cellSize) * Ray.unitStepSize.y;
+		}
+	
+		if(!isNaN(Ray.Length1D.x) && !isNaN(Ray.Length1D.y))
+		{
+			checkForCollision(Ray);
+		}
 	}
+}
+
+function updatePlayerProps() {
+	Player.position.x += Player.velocity.x * Player.speed;
+	Player.position.y += Player.velocity.y * Player.speed;
+
+	Player.mag = Math.sqrt(Math.pow(Player.position.x - Player.mousePosition.x, 2) + Math.pow(Player.position.y - Player.mousePosition.y, 2));
+
+	Player.direction.x = ((Player.mousePosition.x - Player.position.x) / Player.mag);
+	Player.direction.y = ((Player.mousePosition.y - Player.position.y) / Player.mag);
 }
 
 /*
@@ -115,34 +143,30 @@ function calculateRayProps() {
 	We will increment one unit of movement until we find a collision or reach the max distance for detection
 */
 
-function checkForCollision() 
+function checkForCollision(Ray) 
 {
-	dist = 0.0;
-	hit = false;
+	Ray.hitDist = 0.0;
+	Ray.hit = false;
 
 	//Collision check code here.
-	while(!hit && dist < maxDist)
+	while(!Ray.hit && Ray.hitDist < maxDist)
 	{
 		if(Ray.Length1D.x < Ray.Length1D.y)
 		{
-			dist = Ray.Length1D.x;
+			Ray.hitDist = Ray.Length1D.x;
 			Ray.Length1D.x += Ray.unitStepSize.x * cellSize;
 			Ray.cellToCheck.x += Ray.stepDirection.x;
 		}
 		else
 		{
-			dist = Ray.Length1D.y;
+			Ray.hitDist = Ray.Length1D.y;
 			Ray.Length1D.y += Ray.unitStepSize.y * cellSize;
 			Ray.cellToCheck.y += Ray.stepDirection.y;
 		}
 	
 		if(worldMap[Ray.cellToCheck.y * mapWidth + Ray.cellToCheck.x] == 1)
 		{
-			hit = true;
-
-			let tmpObj = {x: Ray.position.x, y: Ray.position.y};
-			tmpObj.x += Ray.direction.x * dist;
-			tmpObj.y += Ray.direction.y * dist;
+			Ray.hit = true;
 		}
 	}
 }
@@ -182,10 +206,7 @@ function handlePlayerInput(e) {
 	}
 }
 
-function updatePlayerPosition() {
-	Player.position.x += Player.velocity.x * Player.speed;
-	Player.position.y += Player.velocity.y * Player.speed;
-}
+function renderRaycasts() {}
 
 function drawMap() {
 	ctx.strokeStyle = '#FFFFFF';
@@ -209,44 +230,59 @@ function drawMap() {
 
 function drawPlayer() {
 	ctx.fillStyle = '#9734FF';
-	ctx.fillRect(
+	ctx.beginPath();
+	ctx.arc(
 		Player.position.x,
 		Player.position.y,
-		Player.width,
-		Player.height
+		10,
+		0,
+		2 * Math.PI
 	);
+	ctx.fill();
 }
 
 function drawRay() {
 	ctx.strokeStyle = '#54ff00';
-	ctx.beginPath();
-	ctx.moveTo(Player.position.x, Player.position.y);
-	ctx.lineTo(Player.mousePosition.x, Player.mousePosition.y);
-	ctx.stroke();
+	for(r in Player.rays)
+	{
+		let Ray = Player.rays[r];
+		ctx.beginPath();
+
+		let tmpX = Ray.position.x;
+		tmpX += Ray.direction.x * Ray.hitDist;
+
+		let tmpY = Ray.position.y;
+		tmpY += Ray.direction.y * Ray.hitDist;
+
+		ctx.moveTo(Ray.position.x, Ray.position.y);
+		ctx.lineTo(tmpX, tmpY);
+		ctx.stroke();
+	}
 }
 
 function drawCollision()
 {
-	if(hit)
+	for(r in Player.rays)
 	{
-		let x = Ray.position.x;
-		x += Ray.direction.x * dist;
-	
-		let y = Ray.position.y;
-		y += Ray.direction.y * dist;
-	
-		ctx.fillStyle = '#FE2836';
-		ctx.beginPath();
-		ctx.arc(x, y, 5, 0, 2 * Math.PI);
-		ctx.fill();
+		let Ray = Player.rays[r];
+
+		if(Ray.hit)
+		{
+			let x = Ray.position.x;
+			x += Ray.direction.x * Ray.hitDist;
+		
+			let y = Ray.position.y;
+			y += Ray.direction.y * Ray.hitDist;
+		
+			ctx.fillStyle = '#FE2836';
+			ctx.beginPath();
+			ctx.arc(x, y, 3, 0, 2 * Math.PI);
+			ctx.fill();
+		}
 	}
 }
 
-function drawDebugValues() {
-	document.getElementById('misc').innerHTML = `Cell Check: {${Ray.cellToCheck.x}, ${Ray.cellToCheck.y}}, Length1D: {${Ray.Length1D.x.toFixed(2)}, ${Ray.Length1D.y.toFixed(2)}}, Unit Step: {${Ray.unitStepSize.x.toFixed(3)}, ${Ray.unitStepSize.y.toFixed(3)}}`;
-	document.getElementById('ray').innerHTML = `Ray Position: {${Ray.position.x}, ${Ray.position.y}}, Ray Truncated Position: {${Ray.posRelToCell.x.toFixed(2)}, ${Ray.posRelToCell.y.toFixed(2)}}, Ray Direction: {${Ray.direction.x.toFixed(3)}, ${Ray.direction.y.toFixed(3)}}, Ray Current Cell: {${Ray.currentCell.x}, ${Ray.currentCell.y}}, Ray Step: {${Ray.stepDirection.x}, ${Ray.stepDirection.y}}`;
-	document.getElementById('mouse').innerHTML = `Mouse Cell: {${Player.mouseCell.x}, ${Player.mouseCell.y}}, Mouse Position: {${Player.mousePosition.x}, ${Player.mousePosition.y}}`;
-}
+function drawDebugValues() {}
 
 function Init() {
 	canvas.width = cellSize * mapWidth;
@@ -270,23 +306,26 @@ function Init() {
 
 	document.getElementById('reset').addEventListener('click', () => {
 		worldMap.fill(0);
-		drawMap();
 	});
 
-	worldMap[48] = 1;
+	for(i = 0; i < viewWidth; i++)
+	{
+		Player.rays.push(createRay());
+	}
 }
 
 function Update() {
-	updatePlayerPosition();
-	calculateRayProps();
+	updatePlayerProps();
+	updateRayProps();
 }
 
 function Render() {
 	drawMap();
 	drawPlayer();
 	drawRay();
-	drawDebugValues();
+	//drawDebugValues();
 	drawCollision();
+	//renderRaycasts()
 }
 
 window.addEventListener('load', () => {
