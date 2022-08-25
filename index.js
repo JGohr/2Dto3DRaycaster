@@ -63,7 +63,6 @@ function updateRayProps() {
 		Ray.posRelToCell.x = ((Ray.position.x - cellSize * Ray.currentCell.x) / cellSize);
 		Ray.posRelToCell.y = ((Ray.position.y - cellSize * Ray.currentCell.y) / cellSize);
 	
-		//Calculates the magnitude of the ray
 		Ray.mag = Math.sqrt(Math.pow(Ray.position.x - Player.mousePosition.x, 2) + Math.pow(Ray.position.y - Player.mousePosition.y, 2));
 	
 		/*
@@ -133,6 +132,16 @@ function updatePlayerProps() {
 
 	Player.direction.x = ((Player.mousePosition.x - Player.position.x) / Player.mag);
 	Player.direction.y = ((Player.mousePosition.y - Player.position.y) / Player.mag);
+
+	/*
+		Since we are controlling the players direction to be relative to the
+		mouse position, we need a way to keep the players plane perpendicular
+		to the players direction.
+
+		Perpendicular 2D Vector of <x, y> = <y, -x>
+	*/
+	Player.plane.x = Player.direction.y;
+	Player.plane.y = -(Player.direction.x);
 }
 
 /*
@@ -249,10 +258,18 @@ function drawRay() {
 		ctx.beginPath();
 
 		let tmpX = Ray.position.x;
-		tmpX += Ray.direction.x * Ray.hitDist;
-
 		let tmpY = Ray.position.y;
-		tmpY += Ray.direction.y * Ray.hitDist;
+
+		if(Ray.hitDist <= 0)
+		{
+			tmpX += Ray.direction.x * maxDist;
+			tmpY += Ray.direction.y * maxDist;
+		}
+		else
+		{
+			tmpX += Ray.direction.x * Ray.hitDist;
+			tmpY += Ray.direction.y * Ray.hitDist;
+		}
 
 		ctx.moveTo(Ray.position.x, Ray.position.y);
 		ctx.lineTo(tmpX, tmpY);
@@ -282,7 +299,10 @@ function drawCollision()
 	}
 }
 
-function drawDebugValues() {}
+function drawDebugValues() {
+	document.getElementById('mouse').innerHTML = `Player Direction: {${Player.direction.x.toFixed(3)}, ${Player.direction.y.toFixed(3)}}`;
+	document.getElementById('misc').innerHTML = `Plane: {${Player.plane.x}, ${Player.plane.y}}`;
+}
 
 function Init() {
 	canvas.width = cellSize * mapWidth;
@@ -317,13 +337,14 @@ function Init() {
 function Update() {
 	updatePlayerProps();
 	updateRayProps();
+	console.log(Player.rays[10].direction);
 }
 
 function Render() {
 	drawMap();
 	drawPlayer();
 	drawRay();
-	//drawDebugValues();
+	drawDebugValues();
 	drawCollision();
 	//renderRaycasts()
 }
