@@ -33,8 +33,9 @@ const inputController = {
 	'KeyW': {pressed: false, fn: function(){
 		let projPosX = Player.position.x + Player.direction.x * Player.speed;
 		let projPosY = Player.position.y + Player.direction.y * Player.speed;
+		let projCell = {x: parseInt(projPosX / cellSize), y: parseInt(projPosY / cellSize)};
 
-		if((projPosX > 0 && projPosX < mapWidth * cellSize) && (projPosY > 0 && projPosY < mapHeight * cellSize))
+		if((projPosX > 0 && projPosX < mapWidth * cellSize) && (projPosY > 0 && projPosY < mapHeight * cellSize) && worldMap[projCell.y * mapWidth + projCell.x] != 1)
 		{
 			Player.position.x = projPosX;
 			Player.position.y = projPosY;
@@ -46,8 +47,9 @@ const inputController = {
 	'KeyS': {pressed: false, fn: function(){
 		let projPosX = Player.position.x - Player.direction.x * Player.speed;
 		let projPosY = Player.position.y - Player.direction.y * Player.speed;
+		let projCell = {x: parseInt(projPosX / cellSize), y: parseInt(projPosY / cellSize)};
 
-		if((projPosX > 0 && projPosX < mapWidth * cellSize) && (projPosY > 0 && projPosY < mapHeight * cellSize))
+		if((projPosX > 0 && projPosX < mapWidth * cellSize) && (projPosY > 0 && projPosY < mapHeight * cellSize) && worldMap[projCell.y * mapWidth + projCell.x] != 1)
 		{
 			Player.position.x = projPosX;
 			Player.position.y = projPosY;
