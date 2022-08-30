@@ -2,21 +2,26 @@ const cellSize = 60;
 const mapHeight = 10;
 const mapWidth = 15;
 const worldMap = Array(mapHeight * mapWidth).fill(0);
+
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');
+
+const renderCanvas = document.getElementById('render');
+const renderCtx = renderCanvas.getContext('2d');
+
 const viewWidth = 640;
 const viewHeight = 480;
 
 let gameLoop;
-let cameraX;
 let fps = 60;
-
-let maxDist = 800;
+let maxDist = 450;
+let fov = 60;
 
 const Player = {
 	position: { x: 0, y: 0 },
-	direction: {x: 0, y: 0},
+	direction: {x: 0, y: -1},
 	mag: 0,
+	endPoint: {x: 0, y: 0},
 	mousePosition: { x: 0.0, y: 0.0 },
 	mouseCell: { x: 0, y: 0 },
 	velocity: { x: 0, y: 0 },
@@ -24,13 +29,16 @@ const Player = {
 	width: cellSize / 2,
 	height: cellSize / 2,
 	rays: [],
-	plane: {x: 0, y: 0.66},
+	rotationState: '',
 };
+
+let lines = [];
 
 function createRay()
 {
 	return {
 		position: { x: 0, y: 0 },
+		endPoint: {x: 0, y: 0},
 		posRelToCell: { x: 0.0, y: 0.0 },
 		mag: 0,
 		direction: { x: 0.0, y: 0.0 },
@@ -41,7 +49,29 @@ function createRay()
 		stepDirection: { x: 0, y: 0 },
 		hit: false,
 		hitDist: 0,
+		renderDist: 0,
+		side: 0,
+		angleFromPlayer: 0,
 	};
+}
+
+function degToRadians(deg)
+{
+	return deg * (Math.PI / 180);
+}
+
+function rayEndPoint(ray)
+{
+	if(ray.mag > 0)
+		return {x: ray.position.x + (ray.direction.x * ray.mag), y: ray.position.y + (ray.direction.y * ray.mag)};
+
+	if(ray.mag <= 0)
+		return {x: ray.position.x + (ray.direction.x * ray.maxDist), y: ray.position.y + (ray.direction.y * ray.maxDist)};
+}
+
+function getDotProduct(v1, v2)
+{
+	return (v1.endPoint.x * v2.endPoint.x) + (v1.endPoint.y * v2.endPoint.y);
 }
 
 function updateRayProps() {
@@ -62,28 +92,38 @@ function updateRayProps() {
 		/* A floating point value of how much the ray position lays within a cell (0.0 - 0.99) */ 
 		Ray.posRelToCell.x = ((Ray.position.x - cellSize * Ray.currentCell.x) / cellSize);
 		Ray.posRelToCell.y = ((Ray.position.y - cellSize * Ray.currentCell.y) / cellSize);
-	
-		Ray.mag = Math.sqrt(Math.pow(Ray.position.x - Player.mousePosition.x, 2) + Math.pow(Ray.position.y - Player.mousePosition.y, 2));
-	
-		/*
-			Since we are using each ray to render a column of pixels on the screen,
-			we need to cast n rays (n = the viewports width) each with a slightly different angle 
-			to create a FOV (Field of View).
 
-			Don't quite understand the implication of the plane just yet so....
-			We will get back to that.
-
-		*/
-		cameraX = 2 * r / viewWidth - 1;
-		Ray.direction.x = Player.direction.x + Player.plane.x * cameraX;
-		Ray.direction.y = Player.direction.y + Player.plane.y * cameraX;
-	
 		/* unitStepSize is a vector containing scalar values for the ray given its slope.
 		This value can be used to find the magnitude of a vector per unit movement along each axis.
 		The approach to this step size calculation was used from lodev.org/raycasting */
 		Ray.unitStepSize.x = (Math.abs(1 / Ray.direction.x));
 		Ray.unitStepSize.y = (Math.abs(1 / Ray.direction.y));
-	
+
+		//Creating angle offsets for all raysto create FOV
+
+		let halfFOV = degToRadians(fov / 2);
+
+		//iAV => "Initial Angle Vector" (-30 Degrees from players direction)
+		let iAVX = Player.direction.x * Math.cos(-halfFOV) - Player.direction.y * Math.sin(-halfFOV);
+		let iAVY = Player.direction.x * Math.sin(-halfFOV) + Player.direction.y * Math.cos(-halfFOV);
+
+		//Amount to rotate each ray by
+		let rayDirStep = degToRadians(fov / viewWidth);
+
+		if(r == 0)
+		{
+			Ray.direction.x = iAVX;
+			Ray.direction.y = iAVY;
+			Ray.angleFromPlayer = -halfFOV; 
+		}
+		else
+		{
+			let rotAmount = (rayDirStep * r)
+			Ray.direction.x =  Player.rays[0].direction.x * Math.cos(rotAmount) - Player.rays[0].direction.y * Math.sin(rotAmount);
+			Ray.direction.y =  Player.rays[0].direction.x * Math.sin(rotAmount) + Player.rays[0].direction.y * Math.cos(rotAmount);
+			Ray.angleFromPlayer = -halfFOV + rotAmount; 
+		}
+
 		/*
 			Priming the RayLength1D property 
 	
@@ -94,6 +134,16 @@ function updateRayProps() {
 			Since the movement per unit doesn't change as long as our slope stays the same, we do this calc
 			to 'align' our inital lengths with the cooresponding axis
 		*/
+
+		if(Ray.direction.x > 1 || Ray.direction.x < -1)
+		{
+			Ray.direction.x = Ray.direction.x - parseInt(Ray.direction.x);
+		}
+
+		if(Ray.direction.y > 1 || Ray.direction.y < -1)
+		{
+			Ray.direction.y = Ray.direction.y - parseInt(Ray.direction.y);
+		}
 	
 		if(Ray.direction.x < 0)
 		{
@@ -120,7 +170,32 @@ function updateRayProps() {
 		if(!isNaN(Ray.Length1D.x) && !isNaN(Ray.Length1D.y))
 		{
 			checkForCollision(Ray);
+			if(!Ray.hit)
+			{
+				Ray.hitDist = 0;
+			}
 		}
+
+		if(Ray.hitDist > 0)
+		{
+			Ray.mag = Ray.hitDist;
+		}
+		else
+		{
+			Ray.mag = maxDist;
+		}
+
+		Ray.endPoint = rayEndPoint(Ray);
+	}
+}
+
+function updateRaycasts()
+{
+	for(r in Player.rays)
+	{
+		let Ray = Player.rays[r];
+
+		Ray.renderDist = Ray.hitDist * Math.cos(Ray.angleFromPlayer);
 	}
 }
 
@@ -128,20 +203,9 @@ function updatePlayerProps() {
 	Player.position.x += Player.velocity.x * Player.speed;
 	Player.position.y += Player.velocity.y * Player.speed;
 
-	Player.mag = Math.sqrt(Math.pow(Player.position.x - Player.mousePosition.x, 2) + Math.pow(Player.position.y - Player.mousePosition.y, 2));
+	Player.mag = 1;
 
-	Player.direction.x = ((Player.mousePosition.x - Player.position.x) / Player.mag);
-	Player.direction.y = ((Player.mousePosition.y - Player.position.y) / Player.mag);
-
-	/*
-		Since we are controlling the players direction to be relative to the
-		mouse position, we need a way to keep the players plane perpendicular
-		to the players direction.
-
-		Perpendicular 2D Vector of <x, y> = <y, -x>
-	*/
-	Player.plane.x = Player.direction.y;
-	Player.plane.y = -(Player.direction.x);
+	Player.endPoint = rayEndPoint(Player);
 }
 
 /*
@@ -165,12 +229,14 @@ function checkForCollision(Ray)
 			Ray.hitDist = Ray.Length1D.x;
 			Ray.Length1D.x += Ray.unitStepSize.x * cellSize;
 			Ray.cellToCheck.x += Ray.stepDirection.x;
+			Ray.side = 0;
 		}
 		else
 		{
 			Ray.hitDist = Ray.Length1D.y;
 			Ray.Length1D.y += Ray.unitStepSize.y * cellSize;
 			Ray.cellToCheck.y += Ray.stepDirection.y;
+			Ray.side = 1;
 		}
 	
 		if(worldMap[Ray.cellToCheck.y * mapWidth + Ray.cellToCheck.x] == 1)
@@ -180,7 +246,6 @@ function checkForCollision(Ray)
 	}
 }
 
-// Changes the worldMap array value to 1 on click 
 function updateWorldMap() {
 	worldMap[parseInt(Player.mouseCell.y) * mapWidth + parseInt(Player.mouseCell.x)] = 1;
 }
@@ -207,6 +272,23 @@ function handlePlayerInput(e) {
 		if (e.code == 'KeyS') Player.velocity.y = 1;
 		if (e.code == 'KeyD') Player.velocity.x = 1;
 		if (e.code == 'KeyA') Player.velocity.x = -1;
+
+		let rotSpeed = .05;
+		if(e.code == 'ArrowLeft')
+		{
+			let oldPlayerDirectionX = Player.direction.x;
+			Player.direction.x = (Player.direction.x * Math.cos(-rotSpeed) - Player.direction.y * Math.sin(-rotSpeed)) / Player.mag;
+			Player.direction.y = (oldPlayerDirectionX * Math.sin(-rotSpeed) + Player.direction.y * Math.cos(-rotSpeed)) / Player.mag;
+			Player.rotationState = 'cc';
+		}
+
+		if(e.code == 'ArrowRight')
+		{
+			let oldPlayerDirectionX = Player.direction.x;
+			Player.direction.x = (Player.direction.x * Math.cos(rotSpeed) - Player.direction.y * Math.sin(rotSpeed)) / Player.mag;
+			Player.direction.y = (oldPlayerDirectionX * Math.sin(rotSpeed) + Player.direction.y * Math.cos(rotSpeed)) / Player.mag;
+			Player.rotationState = 'c';
+		}
 	} else if (e.type == 'keyup') {
 		if (e.code == 'KeyW') Player.velocity.y = 0;
 		if (e.code == 'KeyS') Player.velocity.y = 0;
@@ -215,7 +297,40 @@ function handlePlayerInput(e) {
 	}
 }
 
-function renderRaycasts() {}
+function renderRaycasts() 
+{
+	for(r in Player.rays)
+	{
+		renderCtx.fillStyle = '#96c8a2';
+		renderCtx.fillRect(r, 0, 1, viewHeight / 2);
+		renderCtx.fillStyle = '#e9cbff';
+		renderCtx.fillRect(r, viewHeight / 2, 1, viewHeight);
+
+		let Ray = Player.rays[r];
+
+		let lineHeight = (viewHeight / Ray.renderDist) * cellSize;
+
+		if(lineHeight > viewHeight)
+			lineHeight = viewHeight;
+
+
+		if(Ray.hit)
+		{
+			if(Ray.side == 0)
+			{
+				renderCtx.fillStyle = '#0072bb';
+			}
+			else if(Ray.side == 1)
+			{
+				renderCtx.fillStyle = '#f945c0';
+			}
+
+			renderCtx.fillRect(r, viewHeight / 2 - lineHeight / 2, 1, lineHeight);
+		}
+	}
+	renderCtx.clearRect(0, 0, renderCtx.width, renderCtx.height);
+}
+
 
 function drawMap() {
 	ctx.strokeStyle = '#FFFFFF';
@@ -252,29 +367,35 @@ function drawPlayer() {
 
 function drawRay() {
 	ctx.strokeStyle = '#54ff00';
+	let tmp = [Player.rays[0]];
 	for(r in Player.rays)
 	{
 		let Ray = Player.rays[r];
 		ctx.beginPath();
-
+	
 		let tmpX = Ray.position.x;
 		let tmpY = Ray.position.y;
 
-		if(Ray.hitDist <= 0)
-		{
-			tmpX += Ray.direction.x * maxDist;
-			tmpY += Ray.direction.y * maxDist;
-		}
-		else
+		if(Ray.hitDist > 0)
 		{
 			tmpX += Ray.direction.x * Ray.hitDist;
 			tmpY += Ray.direction.y * Ray.hitDist;
 		}
-
+		else
+		{
+			tmpX += Ray.direction.x * maxDist;
+			tmpY += Ray.direction.y * maxDist;
+		}
+	
 		ctx.moveTo(Ray.position.x, Ray.position.y);
 		ctx.lineTo(tmpX, tmpY);
 		ctx.stroke();
 	}
+
+	ctx.beginPath();
+	ctx.moveTo(Player.position.x, Player.position.y);
+	ctx.lineTo(Player.position.x + (Player.direction.x * 100), Player.position.y + (Player.direction.y * 100));
+	ctx.stroke();
 }
 
 function drawCollision()
@@ -300,13 +421,15 @@ function drawCollision()
 }
 
 function drawDebugValues() {
-	document.getElementById('mouse').innerHTML = `Player Direction: {${Player.direction.x.toFixed(3)}, ${Player.direction.y.toFixed(3)}}`;
-	document.getElementById('misc').innerHTML = `Plane: {${Player.plane.x}, ${Player.plane.y}}`;
+	document.getElementById('mouse').innerHTML = `Player Dir: { ${Player.direction.x.toFixed(2)}, ${Player.direction.y.toFixed(2)}}`;
 }
 
 function Init() {
 	canvas.width = cellSize * mapWidth;
 	canvas.height = cellSize * mapHeight;
+
+	renderCanvas.width = viewWidth;
+	renderCanvas.height = viewHeight;
 
 	window.addEventListener('keydown', (e) => {
 		handlePlayerInput(e);
@@ -337,16 +460,15 @@ function Init() {
 function Update() {
 	updatePlayerProps();
 	updateRayProps();
-	console.log(Player.rays[10].direction);
+	updateRaycasts();
 }
 
 function Render() {
 	drawMap();
 	drawPlayer();
 	drawRay();
-	drawDebugValues();
 	drawCollision();
-	//renderRaycasts()
+	renderRaycasts();
 }
 
 window.addEventListener('load', () => {
@@ -356,3 +478,27 @@ window.addEventListener('load', () => {
 		Render();
 	}, 1000 / fps);
 });
+
+/*
+	LOOP ORDER:
+
+			Clear Screen
+
+			updatePlayerProps();
+
+			updateRayProps();
+
+			updateRaycasts();
+
+			drawMap();
+
+			drawPlayer();
+
+			drawRay();
+
+			drawDebugValues();
+
+			drawCollision();
+
+			renderRaycasts();
+*/
