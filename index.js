@@ -2,37 +2,73 @@ const cellSize = 60;
 const mapHeight = 10;
 const mapWidth = 15;
 const worldMap = Array(mapHeight * mapWidth).fill(0);
-
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');
-
 const renderCanvas = document.getElementById('render');
 const renderCtx = renderCanvas.getContext('2d');
-
 const viewWidth = 640;
 const viewHeight = 480;
-
 let gameLoop;
 let fps = 60;
-let maxDist = 450;
+let maxDist = 600;
 let fov = 60;
 
 const Player = {
-	position: { x: 0, y: 0 },
+	position: { x: 420, y: 280 },
 	direction: {x: 0, y: -1},
-	mag: 0,
+	mag: 1,
 	endPoint: {x: 0, y: 0},
 	mousePosition: { x: 0.0, y: 0.0 },
 	mouseCell: { x: 0, y: 0 },
 	velocity: { x: 0, y: 0 },
 	speed: 4,
+	rotSpeed: .07,
 	width: cellSize / 2,
 	height: cellSize / 2,
 	rays: [],
 	rotationState: '',
 };
 
-let lines = [];
+const inputController = {
+	'KeyW': {pressed: false, fn: function(){
+		let projPosX = Player.position.x + Player.direction.x * Player.speed;
+		let projPosY = Player.position.y + Player.direction.y * Player.speed;
+
+		if((projPosX > 0 && projPosX < mapWidth * cellSize) && (projPosY > 0 && projPosY < mapHeight * cellSize))
+		{
+			Player.position.x = projPosX;
+			Player.position.y = projPosY;
+		}
+	}},
+	'KeyA': {pressed: false, fn: function(){
+		//To do
+	}},
+	'KeyS': {pressed: false, fn: function(){
+		let projPosX = Player.position.x - Player.direction.x * Player.speed;
+		let projPosY = Player.position.y - Player.direction.y * Player.speed;
+
+		if((projPosX > 0 && projPosX < mapWidth * cellSize) && (projPosY > 0 && projPosY < mapHeight * cellSize))
+		{
+			Player.position.x = projPosX;
+			Player.position.y = projPosY;
+		}
+	}},
+	'KeyD': {pressed: false, fn: function(){
+		//To do
+	}},
+	'ArrowLeft': {pressed: false, fn: function(){
+		let oldPlayerDirectionX = Player.direction.x;
+		Player.direction.x = (Player.direction.x * Math.cos(-Player.rotSpeed) - Player.direction.y * Math.sin(-Player.rotSpeed)) / Player.mag;
+		Player.direction.y = (oldPlayerDirectionX * Math.sin(-Player.rotSpeed) + Player.direction.y * Math.cos(-Player.rotSpeed)) / Player.mag;
+		Player.rotationState = 'cc';
+	}},
+	'ArrowRight': {pressed: false, fn: function(){
+		let oldPlayerDirectionX = Player.direction.x;
+		Player.direction.x = (Player.direction.x * Math.cos(Player.rotSpeed) - Player.direction.y * Math.sin(Player.rotSpeed)) / Player.mag;
+		Player.direction.y = (oldPlayerDirectionX * Math.sin(Player.rotSpeed) + Player.direction.y * Math.cos(Player.rotSpeed)) / Player.mag;
+		Player.rotationState = 'c';
+	}},
+}
 
 function createRay()
 {
@@ -82,11 +118,11 @@ function updateRayProps() {
 
 		Ray.position = Player.position;
 
-		//Current cell that the ray stays withing ex: (1, 5)
+		//Current cell that the rays position is in, casted to integer to remove floating point
 		Ray.currentCell.x = parseInt(Player.position.x / cellSize);
 		Ray.currentCell.y = parseInt(Player.position.y / cellSize);
 	
-		/* Used to increment via a step value to check for collision */
+		//Storing the initial cell to check
 		Ray.cellToCheck = Ray.currentCell;
 	
 		/* A floating point value of how much the ray position lays within a cell (0.0 - 0.99) */ 
@@ -99,8 +135,12 @@ function updateRayProps() {
 		Ray.unitStepSize.x = (Math.abs(1 / Ray.direction.x));
 		Ray.unitStepSize.y = (Math.abs(1 / Ray.direction.y));
 
-		//Creating angle offsets for all raysto create FOV
+		/*
+			There's a couple ways to approach creating a FOV for the player. Since I knew I needed viewWidth angles to fit within a given fov degree range,
+			I decided to find the increment for each angle while assigning the initial angle to be -(FOV / 2).
 
+			This way when we rotate, every angle after the initial angle will always be (rayDirStep * n) away.
+		*/
 		let halfFOV = degToRadians(fov / 2);
 
 		//iAV => "Initial Angle Vector" (-30 Degrees from players direction)
@@ -167,52 +207,54 @@ function updateRayProps() {
 			Ray.Length1D.y = ((1.0 - Ray.posRelToCell.y) * cellSize) * Ray.unitStepSize.y;
 		}
 	
+		/*
+			During the initial spawn of the player, the ray lengths could be defaulted to NaN due to the positioning
+			of the player. I defaulted the players spawn offset to be centered but left the conditional just in case.
+		
+			Lastly, we call checkForCollision(). This performs the DDA operation for each ray, adjusting the hitDist during the proccess.
+			Using this hitDist, we can multiply its value by the Ray.angleFromPlayer which we stored previously in the FOV setup. 
+
+			This will remove the fisheye effect seen in a ton of raycasters.
+		*/
+
 		if(!isNaN(Ray.Length1D.x) && !isNaN(Ray.Length1D.y))
 		{
 			checkForCollision(Ray);
 			if(!Ray.hit)
 			{
 				Ray.hitDist = 0;
+
+				if(Ray.hitDist > 0)
+				{
+					Ray.mag = Ray.hitDist;
+				}
+				else
+				{
+					Ray.mag = maxDist;
+				}
 			}
 		}
 
-		if(Ray.hitDist > 0)
-		{
-			Ray.mag = Ray.hitDist;
-		}
-		else
-		{
-			Ray.mag = maxDist;
-		}
-
 		Ray.endPoint = rayEndPoint(Ray);
-	}
-}
-
-function updateRaycasts()
-{
-	for(r in Player.rays)
-	{
-		let Ray = Player.rays[r];
-
 		Ray.renderDist = Ray.hitDist * Math.cos(Ray.angleFromPlayer);
 	}
 }
 
+function callInputController() {
+	Object.keys(inputController).forEach(key => {
+		if(inputController[key].pressed)
+			inputController[key].fn();
+	});
+}
+
 function updatePlayerProps() {
-	Player.position.x += Player.velocity.x * Player.speed;
-	Player.position.y += Player.velocity.y * Player.speed;
-
-	Player.mag = 1;
-
 	Player.endPoint = rayEndPoint(Player);
 }
 
 /*
-	checkForCollision will be called once per frame as long as the init Length.x and .y values are not NaN,
-	this can most likely be prevent by adding some basic border detection but for now this is the working functionality
+	checkForCollision will be called once per frame as long as the init Length.x and .y values are not NaN.
 
-	This entire proccess relies on comparing the tow lengths for each unit of movement (using the scalar values from above)
+	This entire proccess relies on comparing the two lengths for each unit of movement along a given axis (using Ray.unitStepSize.(x OR y)).
 	We will increment one unit of movement until we find a collision or reach the max distance for detection
 */
 
@@ -221,7 +263,6 @@ function checkForCollision(Ray)
 	Ray.hitDist = 0.0;
 	Ray.hit = false;
 
-	//Collision check code here.
 	while(!Ray.hit && Ray.hitDist < maxDist)
 	{
 		if(Ray.Length1D.x < Ray.Length1D.y)
@@ -246,59 +287,25 @@ function checkForCollision(Ray)
 	}
 }
 
-function updateWorldMap() {
-	worldMap[parseInt(Player.mouseCell.y) * mapWidth + parseInt(Player.mouseCell.x)] = 1;
-}
-
 function updateMousePosition(e) {
 	let canvasRect = canvas.getBoundingClientRect();
 	let tmpMousePos = {
-		x: (e.clientX - canvasRect.left).toFixed(1),
-		y: (e.clientY - canvasRect.top).toFixed(1),
+		x: (e.clientX - canvasRect.left),
+		y: (e.clientY - canvasRect.top),
 	};
 
 	let tmpMouseCell = {
-		x: ((e.clientX - canvasRect.left) / cellSize).toFixed(1),
-		y: ((e.clientY - canvasRect.top) / cellSize).toFixed(1),
+		x: ((e.clientX - canvasRect.left) / cellSize),
+		y: ((e.clientY - canvasRect.top) / cellSize),
 	};
 
 	Player.mousePosition = tmpMousePos;
 	Player.mouseCell = tmpMouseCell;
 }
 
-function handlePlayerInput(e) {
-	if (e.type == 'keydown') {
-		if (e.code == 'KeyW') Player.velocity.y = -1;
-		if (e.code == 'KeyS') Player.velocity.y = 1;
-		if (e.code == 'KeyD') Player.velocity.x = 1;
-		if (e.code == 'KeyA') Player.velocity.x = -1;
-
-		let rotSpeed = .05;
-		if(e.code == 'ArrowLeft')
-		{
-			let oldPlayerDirectionX = Player.direction.x;
-			Player.direction.x = (Player.direction.x * Math.cos(-rotSpeed) - Player.direction.y * Math.sin(-rotSpeed)) / Player.mag;
-			Player.direction.y = (oldPlayerDirectionX * Math.sin(-rotSpeed) + Player.direction.y * Math.cos(-rotSpeed)) / Player.mag;
-			Player.rotationState = 'cc';
-		}
-
-		if(e.code == 'ArrowRight')
-		{
-			let oldPlayerDirectionX = Player.direction.x;
-			Player.direction.x = (Player.direction.x * Math.cos(rotSpeed) - Player.direction.y * Math.sin(rotSpeed)) / Player.mag;
-			Player.direction.y = (oldPlayerDirectionX * Math.sin(rotSpeed) + Player.direction.y * Math.cos(rotSpeed)) / Player.mag;
-			Player.rotationState = 'c';
-		}
-	} else if (e.type == 'keyup') {
-		if (e.code == 'KeyW') Player.velocity.y = 0;
-		if (e.code == 'KeyS') Player.velocity.y = 0;
-		if (e.code == 'KeyD') Player.velocity.x = 0;
-		if (e.code == 'KeyA') Player.velocity.x = 0;
-	}
-}
-
 function renderRaycasts() 
 {
+	// Drawing the background first is MANDATORY to prevent a distortion effect on the scene
 	for(r in Player.rays)
 	{
 		renderCtx.fillStyle = '#96c8a2';
@@ -309,10 +316,8 @@ function renderRaycasts()
 		let Ray = Player.rays[r];
 
 		let lineHeight = (viewHeight / Ray.renderDist) * cellSize;
-
 		if(lineHeight > viewHeight)
 			lineHeight = viewHeight;
-
 
 		if(Ray.hit)
 		{
@@ -367,7 +372,6 @@ function drawPlayer() {
 
 function drawRay() {
 	ctx.strokeStyle = '#54ff00';
-	let tmp = [Player.rays[0]];
 	for(r in Player.rays)
 	{
 		let Ray = Player.rays[r];
@@ -420,10 +424,6 @@ function drawCollision()
 	}
 }
 
-function drawDebugValues() {
-	document.getElementById('mouse').innerHTML = `Player Dir: { ${Player.direction.x.toFixed(2)}, ${Player.direction.y.toFixed(2)}}`;
-}
-
 function Init() {
 	canvas.width = cellSize * mapWidth;
 	canvas.height = cellSize * mapHeight;
@@ -432,11 +432,13 @@ function Init() {
 	renderCanvas.height = viewHeight;
 
 	window.addEventListener('keydown', (e) => {
-		handlePlayerInput(e);
+		if(inputController[e.code])
+			inputController[e.code].pressed = true;
 	});
 
 	window.addEventListener('keyup', (e) => {
-		handlePlayerInput(e);
+		if(inputController[e.code])
+			inputController[e.code].pressed = false;
 	});
 
 	window.addEventListener('mousemove', (e) => {
@@ -444,7 +446,7 @@ function Init() {
 	});
 
 	canvas.addEventListener('mousedown', (e) => {
-		updateWorldMap(e, canvas);
+		worldMap[parseInt(Player.mouseCell.y) * mapWidth + parseInt(Player.mouseCell.x)] = 1;
 	});
 
 	document.getElementById('reset').addEventListener('click', () => {
@@ -458,9 +460,9 @@ function Init() {
 }
 
 function Update() {
+	callInputController();
 	updatePlayerProps();
 	updateRayProps();
-	updateRaycasts();
 }
 
 function Render() {
@@ -478,27 +480,3 @@ window.addEventListener('load', () => {
 		Render();
 	}, 1000 / fps);
 });
-
-/*
-	LOOP ORDER:
-
-			Clear Screen
-
-			updatePlayerProps();
-
-			updateRayProps();
-
-			updateRaycasts();
-
-			drawMap();
-
-			drawPlayer();
-
-			drawRay();
-
-			drawDebugValues();
-
-			drawCollision();
-
-			renderRaycasts();
-*/
