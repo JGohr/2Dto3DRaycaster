@@ -1,13 +1,13 @@
 const cellSize = 60;
 const mapHeight = 10;
 const mapWidth = 10;
-const worldMap = Array(mapHeight * mapWidth).fill(0);
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');
 const renderCanvas = document.getElementById('render');
 const renderCtx = renderCanvas.getContext('2d');
 const viewWidth = 640;
 const viewHeight = 480;
+let worldMap;
 let gameLoop;
 let fps = 60;
 let maxDist = 600;
@@ -90,6 +90,25 @@ const inputController = {
 		Player.direction.y = (oldPlayerDirectionX * Math.sin(Player.rotSpeed) + Player.direction.y * Math.cos(Player.rotSpeed)) / Player.mag;
 		Player.rotationState = 'c';
 	}},
+}
+
+function generateMap() {
+
+	let wm = Array(mapHeight * mapWidth).fill(0);
+
+	for(y = 0; y < mapHeight; y++)
+	{
+		for(x = 0; x < mapWidth; x++)
+		{
+			//Generate a border around the map
+			if(y == 0 || y == mapHeight - 1 || x == 0 || x == mapWidth - 1)
+			{
+				wm[y * mapWidth + x] = 1;
+			}
+		}
+	}
+
+	return wm;
 }
 
 function createRay()
@@ -439,6 +458,8 @@ function Init() {
 	renderCanvas.width = viewWidth;
 	renderCanvas.height = viewHeight;
 
+	worldMap = generateMap();
+
 	window.addEventListener('keydown', (e) => {
 		if(inputController[e.code])
 			inputController[e.code].pressed = true;
@@ -458,7 +479,7 @@ function Init() {
 	});
 
 	document.getElementById('reset').addEventListener('click', () => {
-		worldMap.fill(0);
+		worldMap = generateMap();
 	});
 
 	for(i = 0; i < viewWidth; i++)
@@ -479,7 +500,6 @@ function Render() {
 	drawRay();
 	drawCollision();
 	renderRaycasts();
-	document.getElementById('misc').innerHTML = `${Player.direction.x.toFixed(2)}, ${Player.direction.y.toFixed(2)}`;
 }
 
 window.addEventListener('load', () => {
