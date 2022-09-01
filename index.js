@@ -1,6 +1,6 @@
 const cellSize = 60;
 const mapHeight = 10;
-const mapWidth = 15;
+const mapWidth = 20;
 const worldMap = Array(mapHeight * mapWidth).fill(0);
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');
@@ -17,14 +17,13 @@ const Player = {
 	position: { x: 420, y: 280 },
 	direction: {x: 0, y: -1},
 	mag: 1,
+	radius: 10,
 	endPoint: {x: 0, y: 0},
 	mousePosition: { x: 0.0, y: 0.0 },
 	mouseCell: { x: 0, y: 0 },
 	velocity: { x: 0, y: 0 },
 	speed: 4,
 	rotSpeed: .07,
-	width: cellSize / 2,
-	height: cellSize / 2,
 	rays: [],
 	rotationState: '',
 };
@@ -88,7 +87,7 @@ function createRay()
 		hit: false,
 		hitDist: 0,
 		renderDist: 0,
-		side: 0,
+		sideHit: 0,
 		angleFromPlayer: 0,
 	};
 }
@@ -178,14 +177,10 @@ function updateRayProps() {
 		*/
 
 		if(Ray.direction.x > 1 || Ray.direction.x < -1)
-		{
 			Ray.direction.x = Ray.direction.x - parseInt(Ray.direction.x);
-		}
 
 		if(Ray.direction.y > 1 || Ray.direction.y < -1)
-		{
 			Ray.direction.y = Ray.direction.y - parseInt(Ray.direction.y);
-		}
 	
 		if(Ray.direction.x < 0)
 		{
@@ -227,13 +222,9 @@ function updateRayProps() {
 				Ray.hitDist = 0;
 
 				if(Ray.hitDist > 0)
-				{
 					Ray.mag = Ray.hitDist;
-				}
 				else
-				{
 					Ray.mag = maxDist;
-				}
 			}
 		}
 
@@ -272,20 +263,18 @@ function checkForCollision(Ray)
 			Ray.hitDist = Ray.Length1D.x;
 			Ray.Length1D.x += Ray.unitStepSize.x * cellSize;
 			Ray.cellToCheck.x += Ray.stepDirection.x;
-			Ray.side = 0;
+			Ray.sideHit = 0;
 		}
 		else
 		{
 			Ray.hitDist = Ray.Length1D.y;
 			Ray.Length1D.y += Ray.unitStepSize.y * cellSize;
 			Ray.cellToCheck.y += Ray.stepDirection.y;
-			Ray.side = 1;
+			Ray.sideHit = 1;
 		}
 	
 		if(worldMap[Ray.cellToCheck.y * mapWidth + Ray.cellToCheck.x] == 1)
-		{
 			Ray.hit = true;
-		}
 	}
 }
 
@@ -318,26 +307,23 @@ function renderRaycasts()
 		let Ray = Player.rays[r];
 
 		let lineHeight = (viewHeight / Ray.renderDist) * cellSize;
+
 		if(lineHeight > viewHeight)
 			lineHeight = viewHeight;
 
 		if(Ray.hit)
 		{
-			if(Ray.side == 0)
-			{
+			if(Ray.sideHit == 0)
 				renderCtx.fillStyle = '#0072bb';
-			}
-			else if(Ray.side == 1)
-			{
+			else if(Ray.sideHit == 1)
 				renderCtx.fillStyle = '#f945c0';
-			}
 
 			renderCtx.fillRect(r, viewHeight / 2 - lineHeight / 2, 1, lineHeight);
 		}
 	}
+
 	renderCtx.clearRect(0, 0, renderCtx.width, renderCtx.height);
 }
-
 
 function drawMap() {
 	ctx.strokeStyle = '#FFFFFF';
@@ -362,13 +348,7 @@ function drawMap() {
 function drawPlayer() {
 	ctx.fillStyle = '#9734FF';
 	ctx.beginPath();
-	ctx.arc(
-		Player.position.x,
-		Player.position.y,
-		10,
-		0,
-		2 * Math.PI
-	);
+	ctx.arc(Player.position.x, Player.position.y, Player.radius, 0, 2 * Math.PI);
 	ctx.fill();
 }
 
@@ -379,29 +359,24 @@ function drawRay() {
 		let Ray = Player.rays[r];
 		ctx.beginPath();
 	
-		let tmpX = Ray.position.x;
-		let tmpY = Ray.position.y;
+		let x = Ray.position.x;
+		let y = Ray.position.y;
 
 		if(Ray.hitDist > 0)
 		{
-			tmpX += Ray.direction.x * Ray.hitDist;
-			tmpY += Ray.direction.y * Ray.hitDist;
+			x += Ray.direction.x * Ray.hitDist;
+			y += Ray.direction.y * Ray.hitDist;
 		}
 		else
 		{
-			tmpX += Ray.direction.x * maxDist;
-			tmpY += Ray.direction.y * maxDist;
+			x += Ray.direction.x * maxDist;
+			y += Ray.direction.y * maxDist;
 		}
 	
 		ctx.moveTo(Ray.position.x, Ray.position.y);
-		ctx.lineTo(tmpX, tmpY);
+		ctx.lineTo(x, y);
 		ctx.stroke();
 	}
-
-	ctx.beginPath();
-	ctx.moveTo(Player.position.x, Player.position.y);
-	ctx.lineTo(Player.position.x + (Player.direction.x * 100), Player.position.y + (Player.direction.y * 100));
-	ctx.stroke();
 }
 
 function drawCollision()
@@ -412,15 +387,15 @@ function drawCollision()
 
 		if(Ray.hit)
 		{
-			let x = Ray.position.x;
-			x += Ray.direction.x * Ray.hitDist;
+			let xPrime = Ray.position.x;
+			xPrime += Ray.direction.x * Ray.hitDist;
 		
-			let y = Ray.position.y;
-			y += Ray.direction.y * Ray.hitDist;
+			let yPrime = Ray.position.y;
+			yPrime += Ray.direction.y * Ray.hitDist;
 		
 			ctx.fillStyle = '#FE2836';
 			ctx.beginPath();
-			ctx.arc(x, y, 3, 0, 2 * Math.PI);
+			ctx.arc(xPrime, yPrime, 3, 0, 2 * Math.PI);
 			ctx.fill();
 		}
 	}
