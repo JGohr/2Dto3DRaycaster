@@ -1,6 +1,6 @@
 const cellSize = 60;
 const mapHeight = 10;
-const mapWidth = 20;
+const mapWidth = 10;
 const worldMap = Array(mapHeight * mapWidth).fill(0);
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');
@@ -34,28 +34,51 @@ const inputController = {
 		let projPosY = Player.position.y + Player.direction.y * Player.speed;
 		let projCell = {x: parseInt(projPosX / cellSize), y: parseInt(projPosY / cellSize)};
 
-		if((projPosX > 0 && projPosX < mapWidth * cellSize) && (projPosY > 0 && projPosY < mapHeight * cellSize) && worldMap[projCell.y * mapWidth + projCell.x] != 1)
+		if((projPosX > 0 && projPosX < mapWidth * cellSize) && (projPosY > 0 && projPosY < mapHeight * cellSize) && worldMap[Math.abs(projCell.y) * mapWidth + Math.abs(projCell.x)] != 1)
 		{
 			Player.position.x = projPosX;
 			Player.position.y = projPosY;
 		}
 	}},
 	'KeyA': {pressed: false, fn: function(){
-		//To do
+		//Move Left relative to direction
+		let newDir = rotateVector(Player.direction, degToRadians(-90));
+		let projCell = {x: parseInt(newDir.x / cellSize), y: parseInt(newDir.y / cellSize)};
+
+		let projectedX = Player.position.x + (newDir.x * Player.speed);
+		let projectedY = Player.position.y + (newDir.y * Player.speed);
+
+		if((projectedX > 0 && projectedX < mapWidth * cellSize) && (projectedY > 0 && projectedY < mapHeight * cellSize) && worldMap[Math.abs(projCell.y) * mapWidth + Math.abs(projCell.x)] != 1)
+		{
+			Player.position.x = projectedX;
+			Player.position.y = projectedY;
+		}
 	}},
 	'KeyS': {pressed: false, fn: function(){
 		let projPosX = Player.position.x - Player.direction.x * Player.speed;
 		let projPosY = Player.position.y - Player.direction.y * Player.speed;
 		let projCell = {x: parseInt(projPosX / cellSize), y: parseInt(projPosY / cellSize)};
 
-		if((projPosX > 0 && projPosX < mapWidth * cellSize) && (projPosY > 0 && projPosY < mapHeight * cellSize) && worldMap[projCell.y * mapWidth + projCell.x] != 1)
+		if((projPosX > 0 && projPosX < mapWidth * cellSize) && (projPosY > 0 && projPosY < mapHeight * cellSize) && worldMap[Math.abs(projCell.y) * mapWidth + Math.abs(projCell.x)] != 1)
 		{
 			Player.position.x = projPosX;
 			Player.position.y = projPosY;
 		}
 	}},
 	'KeyD': {pressed: false, fn: function(){
-		//To do
+		//Move right relative to direction
+		let newDir = rotateVector(Player.direction, degToRadians(90));
+		let projCell = {x: parseInt(newDir.x / cellSize), y: parseInt(newDir.y / cellSize)};
+
+		let projectedX = Player.position.x + (newDir.x * Player.speed);
+		let projectedY = Player.position.y + (newDir.y * Player.speed);
+
+		if((projectedX > 0 && projectedX < mapWidth * cellSize) && (projectedY > 0 && projectedY < mapHeight * cellSize) && worldMap[Math.abs(projCell.y) * mapWidth + Math.abs(projCell.x)] != 1)
+		{
+			Player.position.x = projectedX;
+			Player.position.y = projectedY;
+		}
+
 	}},
 	'ArrowLeft': {pressed: false, fn: function(){
 		let oldPlayerDirectionX = Player.direction.x;
@@ -109,6 +132,16 @@ function rayEndPoint(ray)
 function getDotProduct(v1, v2)
 {
 	return (v1.endPoint.x * v2.endPoint.x) + (v1.endPoint.y * v2.endPoint.y);
+}
+
+function rotateVector(v, radian)
+{
+	let newVector = {x: 0, y: 0};
+
+	newVector.x = v.x * Math.cos(radian) - v.y * Math.sin(radian);
+	newVector.y = v.x * Math.sin(radian) + v.y * Math.cos(radian);
+
+	return newVector;
 }
 
 function updateRayProps() {
@@ -448,6 +481,7 @@ function Render() {
 	drawRay();
 	drawCollision();
 	renderRaycasts();
+	document.getElementById('misc').innerHTML = `${Player.direction.x.toFixed(2)}, ${Player.direction.y.toFixed(2)}`;
 }
 
 window.addEventListener('load', () => {

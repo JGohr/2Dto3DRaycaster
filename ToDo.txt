@@ -1,0 +1,3 @@
+ - Create Readme
+ - Fix Collision detection outside of map boundaries
+ - Rotational input to move with WASD and rotate with arrow keys
