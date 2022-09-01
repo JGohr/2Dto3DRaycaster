@@ -43,10 +43,9 @@ const inputController = {
 	'KeyA': {pressed: false, fn: function(){
 		//Move Left relative to direction
 		let newDir = rotateVector(Player.direction, degToRadians(-90));
-		let projCell = {x: parseInt(newDir.x / cellSize), y: parseInt(newDir.y / cellSize)};
-
 		let projectedX = Player.position.x + (newDir.x * Player.speed);
 		let projectedY = Player.position.y + (newDir.y * Player.speed);
+		let projCell = {x: parseInt(projectedX / cellSize), y: parseInt(projectedY / cellSize)};
 
 		if((projectedX > 0 && projectedX < mapWidth * cellSize) && (projectedY > 0 && projectedY < mapHeight * cellSize) && worldMap[Math.abs(projCell.y) * mapWidth + Math.abs(projCell.x)] != 1)
 		{
@@ -68,10 +67,9 @@ const inputController = {
 	'KeyD': {pressed: false, fn: function(){
 		//Move right relative to direction
 		let newDir = rotateVector(Player.direction, degToRadians(90));
-		let projCell = {x: parseInt(newDir.x / cellSize), y: parseInt(newDir.y / cellSize)};
-
 		let projectedX = Player.position.x + (newDir.x * Player.speed);
 		let projectedY = Player.position.y + (newDir.y * Player.speed);
+		let projCell = {x: parseInt(projectedX / cellSize), y: parseInt(projectedY / cellSize)};
 
 		if((projectedX > 0 && projectedX < mapWidth * cellSize) && (projectedY > 0 && projectedY < mapHeight * cellSize) && worldMap[Math.abs(projCell.y) * mapWidth + Math.abs(projCell.x)] != 1)
 		{
