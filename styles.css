@@ -38,6 +38,11 @@ body
     background-color: aliceblue;
 }
 
+.screens
+{
+    display: flex;
+}
+
 .debug-values
 {
     width: 75vw;

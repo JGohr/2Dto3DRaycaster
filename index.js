@@ -1,6 +1,6 @@
 const cellSize = 60;
 const mapHeight = 10;
-const mapWidth = 10;
+const mapWidth = 15;
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');
 const renderCanvas = document.getElementById('render');
@@ -17,16 +17,20 @@ const Player = {
 	position: { x: 420, y: 280 },
 	direction: {x: 0, y: -1},
 	mag: 1,
-	radius: 10,
-	endPoint: {x: 0, y: 0},
 	mousePosition: { x: 0.0, y: 0.0 },
 	mouseCell: { x: 0, y: 0 },
-	velocity: { x: 0, y: 0 },
 	speed: 4,
 	rotSpeed: .07,
 	rays: [],
 	rotationState: '',
 };
+
+/*
+	The inputController object will be used to provide smoother feedback for keyevents related to movement of the player.
+	Using regular event listeners to detect keypresses is extremely choppy and doesn't allow for multiple presses to execute functionality.
+
+	The super long conditionals being used before the projected position is actually applied is a basic form of collision detection.
+*/
 
 const inputController = {
 	'KeyW': {pressed: false, fn: function(){
@@ -41,7 +45,6 @@ const inputController = {
 		}
 	}},
 	'KeyA': {pressed: false, fn: function(){
-		//Move Left relative to direction
 		let newDir = rotateVector(Player.direction, degToRadians(-90));
 		let projectedX = Player.position.x + (newDir.x * Player.speed);
 		let projectedY = Player.position.y + (newDir.y * Player.speed);
@@ -65,7 +68,6 @@ const inputController = {
 		}
 	}},
 	'KeyD': {pressed: false, fn: function(){
-		//Move right relative to direction
 		let newDir = rotateVector(Player.direction, degToRadians(90));
 		let projectedX = Player.position.x + (newDir.x * Player.speed);
 		let projectedY = Player.position.y + (newDir.y * Player.speed);
@@ -290,10 +292,6 @@ function callInputController() {
 	});
 }
 
-function updatePlayerProps() {
-	Player.endPoint = rayEndPoint(Player);
-}
-
 /*
 	checkForCollision will be called once per frame as long as the init Length.x and .y values are not NaN.
 
@@ -398,7 +396,7 @@ function drawMap() {
 function drawPlayer() {
 	ctx.fillStyle = '#9734FF';
 	ctx.beginPath();
-	ctx.arc(Player.position.x, Player.position.y, Player.radius, 0, 2 * Math.PI);
+	ctx.arc(Player.position.x, Player.position.y, 10, 0, 2 * Math.PI);
 	ctx.fill();
 }
 
@@ -490,7 +488,6 @@ function Init() {
 
 function Update() {
 	callInputController();
-	updatePlayerProps();
 	updateRayProps();
 }
 

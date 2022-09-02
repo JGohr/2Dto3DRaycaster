@@ -1,2 +1,96 @@
- - Create Readme
- - Fix Collision detection outside of map boundaries
+Game Loop:
+    1. Init()
+        - Set both canvas width and height
+        - Call generateMap()
+        - Assign event listeners for keyup/down
+        - Assign event listener for mousemove (Move through input controller?)
+        - Check for mouse clicks to assign tiles to a value of 1
+        - Assign event listener to reset game map w/ boundaries excluded from deletion
+        - Create viewWidth rays and assign to Player.rays[]
+
+    2. callInputController()
+        - InputController is going to be a singleton object used to detect states of a input and apply
+        certain functionality.
+
+        Each input will be represented as a object with one 'pressed' attribute and one method, this
+        method will be the logic needed when input.pressed == true
+
+    3. updateRayProps()
+        - This function is going to be a majority of essential calculations to make this entire proccess run.
+        Let's take a look at each section and briefly explain what's going on.
+
+            THE LOGIC LISTED BELOW WILL BE PERFORMED ON EVERY RAY.
+
+            3.1: Assign the rays position
+
+            3.2: Find the rays current cell represented as a coordinate (x, y)
+
+            3.3: Assign the init cell to check in our DDA Algo to the rays current cell
+
+            3.4: Get a float representing the percentage that the ray lies within a cell.
+                 This will be used later on in our DDA.
+
+            3.5: Find the 'Unit Step Size' given a rays direction.
+              unitStepSize is a vector containing scalar values for the ray given its slope.
+              This value can be used to find the magnitude of a vector per unit movement along each axis(x or y).
+              The approach to this step size calculation was used from lodev.org/raycasting.
+
+            3.6: Creating the fov
+                There's numerous ways to go about creating a FOV in 2D but this approach seemed to work the easiest for me.
+                We start by getting a radian angle value to fit viewWidth rays within our FOV (60 deg / 480 rays).
+
+                Doing this, we can assign our first ray to be -FOV / 2 degrees away from the players direction vector.
+                Then for each following ray, increment the rays angle offset by the step amount for that angle
+
+            3.7: Priming the Length1D property
+                 Since our DDA algorithm will be operating solely on the premise of being aligned along tile axis,
+                 we need a way to set the initial lengths to be equal to the nearest axis within a cell.
+
+                 Using our unitStepSize and posRelToCell, we can get the distance in pixels from the nearest axis line.
+                 In this process we will also assign the step direction for that ray, this will be used in the DDA.
+
+            3.8: Checking for collision
+                 Onto the fun stuff, we can finally start getting into actually using the DDA algorithm to check for collision.
+
+                 We start by calling a checkForCollision() function on each ray.
+
+                 This function is going to go through the main DDA process, iterating over tiles to check for a collision.
+                 If there is a collision, we assign a hit dist to the rays magnitude to calculate the exact point of that collision.
+                 If no collision is present, we will assign the magnitude of the ray = an arbitrary maxDistance variable.
+
+            3.9 Finishing Up (Ray endpoint and renderDist)
+                The endpoint of each ray is just used to make calculating the dotproduct of vectors easier
+
+                RenderDist, is going to be a final calculation used for rendering. We will multiply a rays hitDist
+                by the cos of the angle from the player to remove any distortion upon rendering. This will be explained later.
+
+      4. Drawing The Scene
+
+          4.1: Drawing the player
+               Simple javscript, just render a context.arc on the players position, give it a radius and boom!
+
+          4.2: Drawing The map
+               This is relatively simple as well, we will use two loops (one nested).
+               We will draw mapHeight * mapWidth cells using worldMap[y * mapWidth + x] to check the value
+               in the area at any given index.
+
+               Assign a certain fillStyle based on the value and call context.fillRect
+
+          4.3: Drawing Rays
+               Also very similar difficulty to the other drawing routines, the only thing we need to keep in mind
+               for this function is each ray holds slightly different angles and possible hitDistances.
+
+               Loop through each ray, check the angle and hitDist if any and render accordingly.
+
+          4.4: Drawing collision
+               We can use some of the data stored within each ray object to render a collision spot within our grid.
+               Since we have a Boolean if the ray is currently hitting something, on top of the hitDist and direction
+               of that ray, we can draw an exact point in our tile space of where our ray collides with a cell.
+
+          4.5 Rendering our scene!
+              All of our calculations up to this point have been FOR THIS MOMENT!
+
+              We are going to take every ray, perform a line height calculation, assign some fillStyles
+              and draw a vertical line, with a width = 1px for every ray we have.
+
+              RENDERING THE BACKGROUND RAYS FIRST IS VITAL TO KEEPING THIS PROCCESS WORKING!
