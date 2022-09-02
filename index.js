@@ -1,14 +1,16 @@
-const cellSize = 60;
-const mapHeight = 10;
-const mapWidth = 15;
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');
 const renderCanvas = document.getElementById('render');
 const renderCtx = renderCanvas.getContext('2d');
+
+let worldMap;
+
+const cellSize = 60;
+const mapHeight = 10;
+const mapWidth = 15;
 const viewWidth = 640;
 const viewHeight = 480;
-let worldMap;
-let gameLoop;
+
 let fps = 60;
 let maxDist = 600;
 let fov = 60;
@@ -151,6 +153,20 @@ function rotateVector(v, radian)
 
 function updateRayProps() {
 
+	/*
+		There's a couple ways to approach creating a FOV for the player. Since I knew I needed viewWidth angles to fit within a given fov degree range,
+		I decided to find the increment for each angle while assigning the initial angle to be -(FOV / 2).
+
+		This way when we rotate, every angle after the initial angle will always be (rayDirStep * n) away.
+
+		rayDirStep = Amount (in radians) to rotate each ray by
+		iAV => "Initial Angle Vector" (-30 Degrees from players direction)
+	*/
+	let halfFOV = degToRadians(fov / 2);
+	let iAVX = Player.direction.x * Math.cos(-halfFOV) - Player.direction.y * Math.sin(-halfFOV);
+	let iAVY = Player.direction.x * Math.sin(-halfFOV) + Player.direction.y * Math.cos(-halfFOV);
+	let rayDirStep = degToRadians(fov / viewWidth);
+
 	for(r in Player.rays)
 	{
 		let Ray = Player.rays[r];
@@ -167,21 +183,6 @@ function updateRayProps() {
 		The approach to this step size calculation was used from lodev.org/raycasting */
 		Ray.unitStepSize.x = (Math.abs(1 / Ray.direction.x));
 		Ray.unitStepSize.y = (Math.abs(1 / Ray.direction.y));
-
-		/*
-			There's a couple ways to approach creating a FOV for the player. Since I knew I needed viewWidth angles to fit within a given fov degree range,
-			I decided to find the increment for each angle while assigning the initial angle to be -(FOV / 2).
-
-			This way when we rotate, every angle after the initial angle will always be (rayDirStep * n) away.
-		*/
-		let halfFOV = degToRadians(fov / 2);
-
-		//iAV => "Initial Angle Vector" (-30 Degrees from players direction)
-		let iAVX = Player.direction.x * Math.cos(-halfFOV) - Player.direction.y * Math.sin(-halfFOV);
-		let iAVY = Player.direction.x * Math.sin(-halfFOV) + Player.direction.y * Math.cos(-halfFOV);
-
-		//Amount to rotate each ray by
-		let rayDirStep = degToRadians(fov / viewWidth);
 
 		if(r == 0)
 		{
@@ -418,15 +419,15 @@ function drawCollision()
 
 		if(Ray.hit)
 		{
-			let xPrime = Player.position.x;
-			xPrime += Ray.direction.x * Ray.hitDist;
+			let colX = Player.position.x;
+			colX += Ray.direction.x * Ray.hitDist;
 		
-			let yPrime = Player.position.y;
-			yPrime += Ray.direction.y * Ray.hitDist;
+			let colY = Player.position.y;
+			colY += Ray.direction.y * Ray.hitDist;
 		
 			ctx.fillStyle = '#FE2836';
 			ctx.beginPath();
-			ctx.arc(xPrime, yPrime, 3, 0, 2 * Math.PI);
+			ctx.arc(colX, colY, 3, 0, 2 * Math.PI);
 			ctx.fill();
 		}
 	}
@@ -485,7 +486,7 @@ function Render() {
 
 window.addEventListener('load', () => {
 	Init();
-	gameLoop = setInterval(() => {
+	setInterval(() => {
 		Update();
 		Render();
 	}, 1000 / fps);
