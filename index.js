@@ -15,6 +15,8 @@ let fov = 60;
 
 const Player = {
 	position: { x: 420, y: 280 },
+	cellPosition: {x: 0, y: 0},
+	currentCell: {x: 0, y: 0},
 	direction: {x: 0, y: -1},
 	mag: 1,
 	mousePosition: { x: 0.0, y: 0.0 },
@@ -116,8 +118,6 @@ function generateMap() {
 function createRay()
 {
 	return {
-		position: { x: 0, y: 0 },
-		endPoint: {x: 0, y: 0},
 		posRelToCell: { x: 0.0, y: 0.0 },
 		mag: 0,
 		direction: { x: 0.0, y: 0.0 },
@@ -139,20 +139,6 @@ function degToRadians(deg)
 	return deg * (Math.PI / 180);
 }
 
-function rayEndPoint(ray)
-{
-	if(ray.mag > 0)
-		return {x: ray.position.x + (ray.direction.x * ray.mag), y: ray.position.y + (ray.direction.y * ray.mag)};
-
-	if(ray.mag <= 0)
-		return {x: ray.position.x + (ray.direction.x * ray.maxDist), y: ray.position.y + (ray.direction.y * ray.maxDist)};
-}
-
-function getDotProduct(v1, v2)
-{
-	return (v1.endPoint.x * v2.endPoint.x) + (v1.endPoint.y * v2.endPoint.y);
-}
-
 function rotateVector(v, radian)
 {
 	let newVector = {x: 0, y: 0};
@@ -169,18 +155,12 @@ function updateRayProps() {
 	{
 		let Ray = Player.rays[r];
 
-		Ray.position = Player.position;
-
 		//Current cell that the rays position is in, casted to integer to remove floating point
 		Ray.currentCell.x = parseInt(Player.position.x / cellSize);
 		Ray.currentCell.y = parseInt(Player.position.y / cellSize);
 	
 		//Storing the initial cell to check
 		Ray.cellToCheck = Ray.currentCell;
-	
-		/* A floating point value of how much the ray position lays within a cell (0.0 - 0.99) */ 
-		Ray.posRelToCell.x = ((Ray.position.x - cellSize * Ray.currentCell.x) / cellSize);
-		Ray.posRelToCell.y = ((Ray.position.y - cellSize * Ray.currentCell.y) / cellSize);
 
 		/* unitStepSize is a vector containing scalar values for the ray given its slope.
 		This value can be used to find the magnitude of a vector per unit movement along each axis.
@@ -237,23 +217,23 @@ function updateRayProps() {
 		if(Ray.direction.x < 0)
 		{
 			Ray.stepDirection.x = -1;
-			Ray.Length1D.x = (cellSize * Ray.posRelToCell.x) * Ray.unitStepSize.x;
+			Ray.Length1D.x = (cellSize * Player.cellPosition.x) * Ray.unitStepSize.x;
 		}
 		else
 		{
 			Ray.stepDirection.x = 1;
-			Ray.Length1D.x = ((1.0 - Ray.posRelToCell.x) * cellSize) * Ray.unitStepSize.x;
+			Ray.Length1D.x = ((1.0 - Player.cellPosition.x) * cellSize) * Ray.unitStepSize.x;
 		}
 	
 		if(Ray.direction.y < 0)
 		{
 			Ray.stepDirection.y = -1;
-			Ray.Length1D.y = (cellSize * Ray.posRelToCell.y) * Ray.unitStepSize.y;
+			Ray.Length1D.y = (cellSize * Player.cellPosition.y) * Ray.unitStepSize.y;
 		}
 		else
 		{
 			Ray.stepDirection.y = 1;
-			Ray.Length1D.y = ((1.0 - Ray.posRelToCell.y) * cellSize) * Ray.unitStepSize.y;
+			Ray.Length1D.y = ((1.0 - Player.cellPosition.y) * cellSize) * Ray.unitStepSize.y;
 		}
 	
 		/*
@@ -265,24 +245,27 @@ function updateRayProps() {
 
 			This will remove the fisheye effect seen in a ton of raycasters.
 		*/
-
-		if(!isNaN(Ray.Length1D.x) && !isNaN(Ray.Length1D.y))
+		checkForCollision(Ray);
+		if(!Ray.hit)
 		{
-			checkForCollision(Ray);
-			if(!Ray.hit)
-			{
-				Ray.hitDist = 0;
-
-				if(Ray.hitDist > 0)
-					Ray.mag = Ray.hitDist;
-				else
-					Ray.mag = maxDist;
-			}
+			Ray.hitDist = 0;
+			Ray.mag = maxDist;
 		}
+		else
+			Ray.mag = Ray.hitDist;
 
-		Ray.endPoint = rayEndPoint(Ray);
+		//Remove fisheye effect
 		Ray.renderDist = Ray.hitDist * Math.cos(Ray.angleFromPlayer);
 	}
+}
+
+function updatePlayerProps()
+{
+	Player.currentCell.x = parseInt(Player.position.x / cellSize);
+	Player.currentCell.y = parseInt(Player.position.y / cellSize);
+
+	Player.cellPosition.x = ((Player.position.x - cellSize * Player.currentCell.x) / cellSize);
+	Player.cellPosition.y = ((Player.position.y - cellSize * Player.currentCell.y) / cellSize);
 }
 
 function callInputController() {
@@ -407,8 +390,8 @@ function drawRay() {
 		let Ray = Player.rays[r];
 		ctx.beginPath();
 	
-		let x = Ray.position.x;
-		let y = Ray.position.y;
+		let x = Player.position.x;
+		let y = Player.position.y;
 
 		if(Ray.hitDist > 0)
 		{
@@ -421,7 +404,7 @@ function drawRay() {
 			y += Ray.direction.y * maxDist;
 		}
 	
-		ctx.moveTo(Ray.position.x, Ray.position.y);
+		ctx.moveTo(Player.position.x, Player.position.y);
 		ctx.lineTo(x, y);
 		ctx.stroke();
 	}
@@ -435,10 +418,10 @@ function drawCollision()
 
 		if(Ray.hit)
 		{
-			let xPrime = Ray.position.x;
+			let xPrime = Player.position.x;
 			xPrime += Ray.direction.x * Ray.hitDist;
 		
-			let yPrime = Ray.position.y;
+			let yPrime = Player.position.y;
 			yPrime += Ray.direction.y * Ray.hitDist;
 		
 			ctx.fillStyle = '#FE2836';
@@ -488,6 +471,7 @@ function Init() {
 
 function Update() {
 	callInputController();
+	updatePlayerProps();
 	updateRayProps();
 }
 
