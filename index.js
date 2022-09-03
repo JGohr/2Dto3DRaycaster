@@ -17,9 +17,9 @@ let fov = 60;
 
 const Player = {
 	position: { x: 420, y: 280 },
+	direction: {x: 0, y: -1},
 	cellPosition: {x: 0, y: 0},
 	currentCell: {x: 0, y: 0},
-	direction: {x: 0, y: -1},
 	mag: 1,
 	mousePosition: { x: 0.0, y: 0.0 },
 	mouseCell: { x: 0, y: 0 },
@@ -96,6 +96,9 @@ const inputController = {
 		Player.direction.y = (oldPlayerDirectionX * Math.sin(Player.rotSpeed) + Player.direction.y * Math.cos(Player.rotSpeed)) / Player.mag;
 		Player.rotationState = 'c';
 	}},
+	'mousedown': {pressed: false, fn: function(){
+		worldMap[parseInt(Player.mouseCell.y) * mapWidth + parseInt(Player.mouseCell.x)] = 1;
+	}},
 }
 
 function generateMap() {
@@ -120,7 +123,6 @@ function generateMap() {
 function createRay()
 {
 	return {
-		posRelToCell: { x: 0.0, y: 0.0 },
 		mag: 0,
 		direction: { x: 0.0, y: 0.0 },
 		unitStepSize: { x: 0, y: 0 },
@@ -457,7 +459,13 @@ function Init() {
 	});
 
 	canvas.addEventListener('mousedown', (e) => {
-		worldMap[parseInt(Player.mouseCell.y) * mapWidth + parseInt(Player.mouseCell.x)] = 1;
+		(inputController[e.type])
+			inputController[e.type].pressed = true;
+	});
+
+	window.addEventListener('mouseup', (e) => {
+		(inputController['mousedown'])
+			inputController['mousedown'].pressed = false;
 	});
 
 	document.getElementById('reset').addEventListener('click', () => {
