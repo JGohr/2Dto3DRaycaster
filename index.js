@@ -21,12 +21,10 @@ const Player = {
 	cellPosition: {x: 0, y: 0},
 	currentCell: {x: 0, y: 0},
 	mag: 1,
-	mousePosition: { x: 0.0, y: 0.0 },
 	mouseCell: { x: 0, y: 0 },
 	speed: 4,
 	rotSpeed: .07,
 	rays: [],
-	rotationState: '',
 };
 
 /*
@@ -94,7 +92,6 @@ const inputController = {
 		newDirection.y = newDirection.y / Player.mag;
 
 		Player.direction = newDirection;
-		Player.rotationState = 'cc';
 	}},
 	'ArrowRight': {pressed: false, fn: function(){
 		let newDirection = {x: 0, y: 0};
@@ -105,7 +102,6 @@ const inputController = {
 		newDirection.y = newDirection.y / Player.mag;
 
 		Player.direction = newDirection;
-		Player.rotationState = 'c';
 	}},
 	'mousedown': {pressed: false, fn: function(){
 		worldMap[parseInt(Player.mouseCell.y) * mapWidth + parseInt(Player.mouseCell.x)] = 1;
@@ -325,17 +321,12 @@ function checkForCollision(Ray)
 
 function updateMousePosition(e) {
 	let canvasRect = canvas.getBoundingClientRect();
-	let tmpMousePos = {
-		x: (e.clientX - canvasRect.left),
-		y: (e.clientY - canvasRect.top),
-	};
 
 	let tmpMouseCell = {
 		x: ((e.clientX - canvasRect.left) / cellSize),
 		y: ((e.clientY - canvasRect.top) / cellSize),
 	};
 
-	Player.mousePosition = tmpMousePos;
 	Player.mouseCell = tmpMouseCell;
 }
 
