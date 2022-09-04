@@ -36,14 +36,14 @@ const Player = {
 
 const inputController = {
 	'KeyW': {pressed: false, fn: function(){
-		let projPosX = Player.position.x + Player.direction.x * Player.speed;
-		let projPosY = Player.position.y + Player.direction.y * Player.speed;
-		let projCell = {x: parseInt(projPosX / cellSize), y: parseInt(projPosY / cellSize)};
+		let projectedX = Player.position.x + Player.direction.x * Player.speed;
+		let projectedY = Player.position.y + Player.direction.y * Player.speed;
+		let projCell = {x: parseInt(projectedX / cellSize), y: parseInt(projectedY / cellSize)};
 
-		if((projPosX > 0 && projPosX < mapWidth * cellSize) && (projPosY > 0 && projPosY < mapHeight * cellSize) && worldMap[Math.abs(projCell.y) * mapWidth + Math.abs(projCell.x)] != 1)
+		if(playerCollisionCheck(projectedX, projectedY, projCell))
 		{
-			Player.position.x = projPosX;
-			Player.position.y = projPosY;
+			Player.position.x = projectedX;
+			Player.position.y = projectedY;
 		}
 	}},
 	'KeyA': {pressed: false, fn: function(){
@@ -52,21 +52,21 @@ const inputController = {
 		let projectedY = Player.position.y + (newDir.y * Player.speed);
 		let projCell = {x: parseInt(projectedX / cellSize), y: parseInt(projectedY / cellSize)};
 
-		if((projectedX > 0 && projectedX < mapWidth * cellSize) && (projectedY > 0 && projectedY < mapHeight * cellSize) && worldMap[Math.abs(projCell.y) * mapWidth + Math.abs(projCell.x)] != 1)
+		if(playerCollisionCheck(projectedX, projectedY, projCell))
 		{
 			Player.position.x = projectedX;
 			Player.position.y = projectedY;
 		}
 	}},
 	'KeyS': {pressed: false, fn: function(){
-		let projPosX = Player.position.x - Player.direction.x * Player.speed;
-		let projPosY = Player.position.y - Player.direction.y * Player.speed;
-		let projCell = {x: parseInt(projPosX / cellSize), y: parseInt(projPosY / cellSize)};
+		let projectedX = Player.position.x - Player.direction.x * Player.speed;
+		let projectedY = Player.position.y - Player.direction.y * Player.speed;
+		let projCell = {x: parseInt(projectedX / cellSize), y: parseInt(projectedY / cellSize)};
 
-		if((projPosX > 0 && projPosX < mapWidth * cellSize) && (projPosY > 0 && projPosY < mapHeight * cellSize) && worldMap[Math.abs(projCell.y) * mapWidth + Math.abs(projCell.x)] != 1)
+		if(playerCollisionCheck(projectedX, projectedY, projCell))
 		{
-			Player.position.x = projPosX;
-			Player.position.y = projPosY;
+			Player.position.x = projectedX;
+			Player.position.y = projectedY;
 		}
 	}},
 	'KeyD': {pressed: false, fn: function(){
@@ -75,7 +75,7 @@ const inputController = {
 		let projectedY = Player.position.y + (newDir.y * Player.speed);
 		let projCell = {x: parseInt(projectedX / cellSize), y: parseInt(projectedY / cellSize)};
 
-		if((projectedX > 0 && projectedX < mapWidth * cellSize) && (projectedY > 0 && projectedY < mapHeight * cellSize) && worldMap[Math.abs(projCell.y) * mapWidth + Math.abs(projCell.x)] != 1)
+		if(playerCollisionCheck(projectedX, projectedY, projCell))
 		{
 			Player.position.x = projectedX;
 			Player.position.y = projectedY;
@@ -104,8 +104,18 @@ const inputController = {
 		Player.direction = newDirection;
 	}},
 	'mousedown': {pressed: false, fn: function(){
-		worldMap[parseInt(Player.mouseCell.y) * mapWidth + parseInt(Player.mouseCell.x)] = 1;
+		worldMap[Player.mouseCell.y * mapWidth + Player.mouseCell.x] = 1;
 	}},
+}
+
+function playerCollisionCheck(projectedX, projectedY, projCell)
+{
+	if((projectedX > 0 && projectedX < mapWidth * cellSize) && (projectedY > 0 && projectedY < mapHeight * cellSize) && worldMap[Math.abs(projCell.y) * mapWidth + Math.abs(projCell.x)] != 1)
+	{
+		return true;
+	}
+
+	return false;
 }
 
 function generateMap() {
@@ -323,8 +333,8 @@ function updateMousePosition(e) {
 	let canvasRect = canvas.getBoundingClientRect();
 
 	let tmpMouseCell = {
-		x: ((e.clientX - canvasRect.left) / cellSize),
-		y: ((e.clientY - canvasRect.top) / cellSize),
+		x: parseInt((e.clientX - canvasRect.left) / cellSize),
+		y: parseInt((e.clientY - canvasRect.top) / cellSize),
 	};
 
 	Player.mouseCell = tmpMouseCell;
