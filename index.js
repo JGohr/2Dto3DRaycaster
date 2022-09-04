@@ -88,8 +88,10 @@ const inputController = {
 
 		let newDirection = {x: 0, y: 0};
 
-		newDirection.x = (Player.direction.x * Math.cos(-Player.rotSpeed) - Player.direction.y * Math.sin(-Player.rotSpeed)) / Player.mag;
-		newDirection.y = (Player.direction.x * Math.sin(-Player.rotSpeed) + Player.direction.y * Math.cos(-Player.rotSpeed)) / Player.mag;
+		newDirection = rotateVector(Player.direction, -Player.rotSpeed);
+
+		newDirection.x = newDirection.x / Player.mag;
+		newDirection.y = newDirection.y / Player.mag;
 
 		Player.direction = newDirection;
 		Player.rotationState = 'cc';
@@ -97,8 +99,10 @@ const inputController = {
 	'ArrowRight': {pressed: false, fn: function(){
 		let newDirection = {x: 0, y: 0};
 
-		newDirection.x = (Player.direction.x * Math.cos(Player.rotSpeed) - Player.direction.y * Math.sin(Player.rotSpeed)) / Player.mag;
-		newDirection.y = (Player.direction.x * Math.sin(Player.rotSpeed) + Player.direction.y * Math.cos(Player.rotSpeed)) / Player.mag;
+		newDirection = rotateVector(Player.direction, Player.rotSpeed);
+
+		newDirection.x = newDirection.x / Player.mag;
+		newDirection.y = newDirection.y / Player.mag;
 
 		Player.direction = newDirection;
 		Player.rotationState = 'c';
