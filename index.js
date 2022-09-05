@@ -182,29 +182,18 @@ function updateRayProps() {
 		iAV => "Initial Angle Vector" (-30 Degrees from players direction)
 	*/
 	let halfFOV = degToRadians(fov / 2);
-	let iAVX = Player.direction.x * Math.cos(-halfFOV) - Player.direction.y * Math.sin(-halfFOV);
-	let iAVY = Player.direction.x * Math.sin(-halfFOV) + Player.direction.y * Math.cos(-halfFOV);
+
+	let initialAngleVector = rotateVector(Player.direction, -halfFOV);
+
 	let rayDirStep = degToRadians(fov / viewWidth);
 
 	for(r in Player.rays)
 	{
 		let Ray = Player.rays[r];
 
-		/* Each ray needs a initial cell to check, since all rays start from Player.position
-		we can assign the x and y values to our players current cell */
-		Ray.cellToCheck.x = Player.currentCell.x;
-		Ray.cellToCheck.y = Player.currentCell.y;
-
-		/* unitStepSize is a vector containing scalar values for the ray given its slope.
-		This value can be used to find the magnitude of a vector per unit movement along each axis.
-		The approach to this step size calculation was used from lodev.org/raycasting */
-		Ray.unitStepSize.x = (Math.abs(1 / Ray.direction.x));
-		Ray.unitStepSize.y = (Math.abs(1 / Ray.direction.y));
-
 		if(r == 0)
 		{
-			Ray.direction.x = iAVX;
-			Ray.direction.y = iAVY;
+			Ray.direction = initialAngleVector;
 			Ray.angleFromPlayer = -halfFOV; 
 		}
 		else
@@ -214,6 +203,20 @@ function updateRayProps() {
 			Ray.direction.y =  Player.rays[0].direction.x * Math.sin(rotAmount) + Player.rays[0].direction.y * Math.cos(rotAmount);
 			Ray.angleFromPlayer = -halfFOV + rotAmount; 
 		}
+
+		/* Each ray needs a initial cell to check, since all rays start from Player.position
+		we can assign the x and y values to our players current cell */
+		Ray.cellToCheck.x = Player.currentCell.x;
+		Ray.cellToCheck.y = Player.currentCell.y;
+
+		/* unitStepSize is a vector containing scalar values for the ray given its slope.
+		This value can be used to find the magnitude of a vector per unit movement along each axis.
+		The approach to this step size calculation was used from lodev.org/raycasting 
+		
+		Since this scalar value is only for 1px of movement, we multiply it by our cellSize
+		variable to get the desired scale factor for this app.*/
+		Ray.unitStepSize.x = (Math.abs(1 / Ray.direction.x)) * cellSize;
+		Ray.unitStepSize.y = (Math.abs(1 / Ray.direction.y)) * cellSize;
 
 		/*
 			Priming the RayLength1D property 
@@ -225,33 +228,27 @@ function updateRayProps() {
 			Since the movement per unit doesn't change as long as our slope stays the same, we do this calc
 			to 'align' our inital lengths with the cooresponding axis
 		*/
-
-		if(Ray.direction.x > 1 || Ray.direction.x < -1)
-			Ray.direction.x = Ray.direction.x - parseInt(Ray.direction.x);
-
-		if(Ray.direction.y > 1 || Ray.direction.y < -1)
-			Ray.direction.y = Ray.direction.y - parseInt(Ray.direction.y);
 	
 		if(Ray.direction.x < 0)
 		{
 			Ray.stepDirection.x = -1;
-			Ray.Length1D.x = (cellSize * Player.cellPosition.x) * Ray.unitStepSize.x;
+			Ray.Length1D.x = (Player.cellPosition.x) * Ray.unitStepSize.x;
 		}
 		else
 		{
 			Ray.stepDirection.x = 1;
-			Ray.Length1D.x = ((1.0 - Player.cellPosition.x) * cellSize) * Ray.unitStepSize.x;
+			Ray.Length1D.x = ((1.0 - Player.cellPosition.x)) * Ray.unitStepSize.x;
 		}
 	
 		if(Ray.direction.y < 0)
 		{
 			Ray.stepDirection.y = -1;
-			Ray.Length1D.y = (cellSize * Player.cellPosition.y) * Ray.unitStepSize.y;
+			Ray.Length1D.y = (Player.cellPosition.y) * Ray.unitStepSize.y;
 		}
 		else
 		{
 			Ray.stepDirection.y = 1;
-			Ray.Length1D.y = ((1.0 - Player.cellPosition.y) * cellSize) * Ray.unitStepSize.y;
+			Ray.Length1D.y = (1.0 - Player.cellPosition.y) * Ray.unitStepSize.y;
 		}
 	
 		/*
@@ -310,14 +307,14 @@ function checkForCollision(Ray)
 		if(Ray.Length1D.x < Ray.Length1D.y)
 		{
 			Ray.hitDist = Ray.Length1D.x;
-			Ray.Length1D.x += Ray.unitStepSize.x * cellSize;
+			Ray.Length1D.x += Ray.unitStepSize.x;
 			Ray.cellToCheck.x += Ray.stepDirection.x;
 			Ray.sideHit = 0;
 		}
 		else
 		{
 			Ray.hitDist = Ray.Length1D.y;
-			Ray.Length1D.y += Ray.unitStepSize.y * cellSize;
+			Ray.Length1D.y += Ray.unitStepSize.y;
 			Ray.cellToCheck.y += Ray.stepDirection.y;
 			Ray.sideHit = 1;
 		}
