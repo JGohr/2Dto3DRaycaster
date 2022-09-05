@@ -40,7 +40,7 @@ const inputController = {
 		let projectedY = Player.position.y + Player.direction.y * Player.speed;
 		let projCell = {x: parseInt(projectedX / cellSize), y: parseInt(projectedY / cellSize)};
 
-		if(playerCollisionCheck(projectedX, projectedY, projCell))
+		if(playerCollisionCheck(projCell))
 		{
 			Player.position.x = projectedX;
 			Player.position.y = projectedY;
@@ -52,7 +52,7 @@ const inputController = {
 		let projectedY = Player.position.y + (newDir.y * Player.speed);
 		let projCell = {x: parseInt(projectedX / cellSize), y: parseInt(projectedY / cellSize)};
 
-		if(playerCollisionCheck(projectedX, projectedY, projCell))
+		if(playerCollisionCheck(projCell))
 		{
 			Player.position.x = projectedX;
 			Player.position.y = projectedY;
@@ -63,7 +63,7 @@ const inputController = {
 		let projectedY = Player.position.y - Player.direction.y * Player.speed;
 		let projCell = {x: parseInt(projectedX / cellSize), y: parseInt(projectedY / cellSize)};
 
-		if(playerCollisionCheck(projectedX, projectedY, projCell))
+		if(playerCollisionCheck(projCell))
 		{
 			Player.position.x = projectedX;
 			Player.position.y = projectedY;
@@ -75,7 +75,7 @@ const inputController = {
 		let projectedY = Player.position.y + (newDir.y * Player.speed);
 		let projCell = {x: parseInt(projectedX / cellSize), y: parseInt(projectedY / cellSize)};
 
-		if(playerCollisionCheck(projectedX, projectedY, projCell))
+		if(playerCollisionCheck(projCell))
 		{
 			Player.position.x = projectedX;
 			Player.position.y = projectedY;
@@ -108,9 +108,9 @@ const inputController = {
 	}},
 }
 
-function playerCollisionCheck(projectedX, projectedY, projCell)
+function playerCollisionCheck(projCell)
 {
-	if((projectedX > 0 && projectedX < mapWidth * cellSize) && (projectedY > 0 && projectedY < mapHeight * cellSize) && worldMap[Math.abs(projCell.y) * mapWidth + Math.abs(projCell.x)] != 1)
+	if(worldMap[projCell.y * mapWidth + projCell.x] != 1)
 	{
 		return true;
 	}
@@ -190,12 +190,10 @@ function updateRayProps() {
 	{
 		let Ray = Player.rays[r];
 
-		//Current cell that the rays position is in, casted to integer to remove floating point
-		Ray.currentCell.x = parseInt(Player.position.x / cellSize);
-		Ray.currentCell.y = parseInt(Player.position.y / cellSize);
-	
-		//Storing the initial cell to check
-		Ray.cellToCheck = Ray.currentCell;
+		/* Each ray needs a initial cell to check, since all rays start from Player.position
+		we can assign the x and y values to our players current cell */
+		Ray.cellToCheck.x = Player.currentCell.x;
+		Ray.cellToCheck.y = Player.currentCell.y;
 
 		/* unitStepSize is a vector containing scalar values for the ray given its slope.
 		This value can be used to find the magnitude of a vector per unit movement along each axis.
