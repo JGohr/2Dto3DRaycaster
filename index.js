@@ -6,17 +6,17 @@ const renderCtx = renderCanvas.getContext('2d');
 let worldMap;
 
 const cellSize = 60;
-const mapHeight = 10;
+const mapHeight = 5;
 const mapWidth = 15;
 const viewWidth = 640;
 const viewHeight = 480;
 
 let fps = 60;
-let maxDist = 600;
-let fov = degToRadians(60);
+let maxDist;
+let fov = degToRadians(fps);
 
 const Player = {
-	position: { x: 420, y: 280 },
+	position: { x: 0, y: 0 },
 	direction: {x: 0, y: -1},
 	cellPosition: {x: 0, y: 0},
 	currentCell: {x: 0, y: 0},
@@ -261,7 +261,9 @@ function updateRayProps() {
 		checkForCollision(Ray);
 
 		if(!Ray.hit)
+		{
 			Ray.hitDist = 0;
+		}
 		else if(Ray.hit && Ray.hitDist > maxDist)
 		{
 			Ray.hitDist = 0;
@@ -338,9 +340,9 @@ function renderRaycasts()
 	// Drawing the background first is MANDATORY to prevent a distortion effect on the scene
 	for(r in Player.rays)
 	{
-		renderCtx.fillStyle = '#96c8a2';
+		renderCtx.fillStyle = '#042122';
 		renderCtx.fillRect(r, 0, 1, viewHeight / 2);
-		renderCtx.fillStyle = '#e9cbff';
+		renderCtx.fillStyle = '#cac2b4';
 		renderCtx.fillRect(r, viewHeight / 2, 1, viewHeight);
 
 		let Ray = Player.rays[r];
@@ -353,9 +355,9 @@ function renderRaycasts()
 		if(Ray.hit)
 		{
 			if(Ray.sideHit == 0)
-				renderCtx.fillStyle = '#0072bb';
+				renderCtx.fillStyle = '#ff3c3c';
 			else if(Ray.sideHit == 1)
-				renderCtx.fillStyle = '#f945c0';
+				renderCtx.fillStyle = '#00dddd';
 
 			renderCtx.fillRect(r, viewHeight / 2 - lineHeight / 2, 1, lineHeight);
 		}
@@ -371,10 +373,10 @@ function drawMap() {
 		for (let x = 0; x < mapWidth; x++) {
 			switch (worldMap[y * mapWidth + x]) {
 				case 0:
-					ctx.fillStyle = '#000000';
+					ctx.fillStyle = '#220504';
 					break;
 				case 1:
-					ctx.fillStyle = '#0023E5';
+					ctx.fillStyle = '#d040e0';
 					break;
 			}
 
@@ -445,6 +447,11 @@ function Init() {
 	renderCanvas.height = viewHeight;
 
 	worldMap = generateMap();
+
+	maxDist = (mapHeight > mapWidth ? mapHeight * cellSize : mapWidth * cellSize);
+
+	Player.position.x = (mapWidth * cellSize) / 2;
+	Player.position.y = (mapHeight * cellSize) / 2;
 
 	window.addEventListener('keydown', (e) => {
 		if(inputController[e.code])
