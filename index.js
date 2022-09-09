@@ -13,7 +13,7 @@ const viewHeight = 480;
 
 let fps = 60;
 let maxDist = 600;
-let fov = 60;
+let fov = degToRadians(60);
 
 const Player = {
 	position: { x: 420, y: 280 },
@@ -140,18 +140,18 @@ function generateMap() {
 function createRay()
 {
 	return {
-		mag: 0,
+		angleFromPlayer: 0,
 		direction: { x: 0.0, y: 0.0 },
+		mag: 0,
 		unitStepSize: { x: 0, y: 0 },
 		currentCell: { x: 0, y: 0 },
 		cellToCheck: { x: 0, y: 0 },
-		Length1D: { x: 0, y: 0 },
+		travelDist: { x: 0, y: 0 },
 		stepDirection: { x: 0, y: 0 },
 		hit: false,
 		hitDist: 0,
 		renderDist: 0,
 		sideHit: 0,
-		angleFromPlayer: 0,
 	};
 }
 
@@ -181,11 +181,11 @@ function updateRayProps() {
 		rayDirStep = Amount (in radians) to rotate each ray by
 		iAV => "Initial Angle Vector" (-30 Degrees from players direction)
 	*/
-	let halfFOV = degToRadians(fov / 2);
+	let halfFOV = fov / 2;
 
 	let initialAngleVector = rotateVector(Player.direction, -halfFOV);
 
-	let rayDirStep = degToRadians(fov / viewWidth);
+	let rayDirStep = fov / viewWidth;
 
 	for(r in Player.rays)
 	{
@@ -193,14 +193,13 @@ function updateRayProps() {
 
 		if(r == 0)
 		{
-			Ray.direction = initialAngleVector;
+			Ray.direction = initialAngleVector; 
 			Ray.angleFromPlayer = -halfFOV; 
 		}
 		else
 		{
 			let rotAmount = (rayDirStep * r)
-			Ray.direction.x =  Player.rays[0].direction.x * Math.cos(rotAmount) - Player.rays[0].direction.y * Math.sin(rotAmount);
-			Ray.direction.y =  Player.rays[0].direction.x * Math.sin(rotAmount) + Player.rays[0].direction.y * Math.cos(rotAmount);
+			Ray.direction = rotateVector(initialAngleVector, rotAmount);
 			Ray.angleFromPlayer = -halfFOV + rotAmount; 
 		}
 
@@ -219,7 +218,7 @@ function updateRayProps() {
 		Ray.unitStepSize.y = (Math.abs(1 / Ray.direction.y)) * cellSize;
 
 		/*
-			Priming the RayLength1D property 
+			Priming the Ray travelDist property 
 	
 			We need to prime the RayLength property to prepare for incrementing by a cell size.
 			This can be done by checking the position of the ray in a given cell & storing the initial length
@@ -232,42 +231,42 @@ function updateRayProps() {
 		if(Ray.direction.x < 0)
 		{
 			Ray.stepDirection.x = -1;
-			Ray.Length1D.x = (Player.cellPosition.x) * Ray.unitStepSize.x;
+			Ray.travelDist.x = (Player.cellPosition.x) * Ray.unitStepSize.x;
 		}
 		else
 		{
 			Ray.stepDirection.x = 1;
-			Ray.Length1D.x = ((1.0 - Player.cellPosition.x)) * Ray.unitStepSize.x;
+			Ray.travelDist.x = (1.0 - Player.cellPosition.x) * Ray.unitStepSize.x;
 		}
 	
 		if(Ray.direction.y < 0)
 		{
 			Ray.stepDirection.y = -1;
-			Ray.Length1D.y = (Player.cellPosition.y) * Ray.unitStepSize.y;
+			Ray.travelDist.y = (Player.cellPosition.y) * Ray.unitStepSize.y;
 		}
 		else
 		{
 			Ray.stepDirection.y = 1;
-			Ray.Length1D.y = (1.0 - Player.cellPosition.y) * Ray.unitStepSize.y;
+			Ray.travelDist.y = (1.0 - Player.cellPosition.y) * Ray.unitStepSize.y;
 		}
 	
-		/*
-			During the initial spawn of the player, the ray lengths could be defaulted to NaN due to the positioning
-			of the player. I defaulted the players spawn offset to be centered but left the conditional just in case.
-		
+		/*		
 			Lastly, we call checkForCollision(). This performs the DDA operation for each ray, adjusting the hitDist during the proccess.
 			Using this hitDist, we can multiply its value by the Ray.angleFromPlayer which we stored previously in the FOV setup. 
+
+			Since we are using the hitDist in the checkForCollision function, we need to ensure we reset the value to zero if not hit.
 
 			This will remove the fisheye effect seen in a ton of raycasters.
 		*/
 		checkForCollision(Ray);
+
 		if(!Ray.hit)
+			Ray.hitDist = 0;
+		else if(Ray.hit && Ray.hitDist > maxDist)
 		{
 			Ray.hitDist = 0;
-			Ray.mag = maxDist;
+			Ray.hit = false;
 		}
-		else
-			Ray.mag = Ray.hitDist;
 
 		//Remove fisheye effect
 		Ray.renderDist = Ray.hitDist * Math.cos(Ray.angleFromPlayer);
@@ -276,11 +275,11 @@ function updateRayProps() {
 
 function updatePlayerProps()
 {
-	Player.currentCell.x = parseInt(Player.position.x / cellSize);
-	Player.currentCell.y = parseInt(Player.position.y / cellSize);
+	Player.currentCell.x = parseInt( Player.position.x / cellSize );
+	Player.currentCell.y = parseInt( Player.position.y / cellSize );
 
-	Player.cellPosition.x = ((Player.position.x - cellSize * Player.currentCell.x) / cellSize);
-	Player.cellPosition.y = ((Player.position.y - cellSize * Player.currentCell.y) / cellSize);
+	Player.cellPosition.x = ( Player.position.x - (cellSize * Player.currentCell.x) ) / cellSize;
+	Player.cellPosition.y = ( Player.position.y - (cellSize * Player.currentCell.y) ) / cellSize;
 }
 
 function callInputController() {
@@ -299,22 +298,21 @@ function callInputController() {
 
 function checkForCollision(Ray) 
 {
-	Ray.hitDist = 0.0;
 	Ray.hit = false;
 
 	while(!Ray.hit && Ray.hitDist < maxDist)
 	{
-		if(Ray.Length1D.x < Ray.Length1D.y)
+		if(Ray.travelDist.x < Ray.travelDist.y)
 		{
-			Ray.hitDist = Ray.Length1D.x;
-			Ray.Length1D.x += Ray.unitStepSize.x;
+			Ray.hitDist = Ray.travelDist.x;
+			Ray.travelDist.x += Ray.unitStepSize.x;
 			Ray.cellToCheck.x += Ray.stepDirection.x;
 			Ray.sideHit = 0;
 		}
 		else
 		{
-			Ray.hitDist = Ray.Length1D.y;
-			Ray.Length1D.y += Ray.unitStepSize.y;
+			Ray.hitDist = Ray.travelDist.y;
+			Ray.travelDist.y += Ray.unitStepSize.y;
 			Ray.cellToCheck.y += Ray.stepDirection.y;
 			Ray.sideHit = 1;
 		}
@@ -398,7 +396,6 @@ function drawRay() {
 	for(r in Player.rays)
 	{
 		let Ray = Player.rays[r];
-		ctx.beginPath();
 	
 		let x = Player.position.x;
 		let y = Player.position.y;
@@ -413,7 +410,8 @@ function drawRay() {
 			x += Ray.direction.x * maxDist;
 			y += Ray.direction.y * maxDist;
 		}
-	
+		
+		ctx.beginPath();
 		ctx.moveTo(Player.position.x, Player.position.y);
 		ctx.lineTo(x, y);
 		ctx.stroke();
@@ -428,11 +426,8 @@ function drawCollision()
 
 		if(Ray.hit)
 		{
-			let colX = Player.position.x;
-			colX += Ray.direction.x * Ray.hitDist;
-		
-			let colY = Player.position.y;
-			colY += Ray.direction.y * Ray.hitDist;
+			let colX = Player.position.x + (Ray.direction.x * Ray.hitDist);
+			let colY = Player.position.y + (Ray.direction.y * Ray.hitDist);
 		
 			ctx.fillStyle = '#FE2836';
 			ctx.beginPath();
