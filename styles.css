@@ -3,6 +3,14 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+
+    --ceiling: #042122;
+    --floor: #cac2b4;
+    --wallX: #ff3c3c;
+    --wallY: #00dddd;
+
+    --cellEmpty: #220504;
+    --cellFull: #d040e0;
 }
 
 body
@@ -36,9 +44,4 @@ body
 {
     border: 2px solid red;
     background-color: aliceblue;
-}
-
-.screens
-{
-    display: flex;
 }
