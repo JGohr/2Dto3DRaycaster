@@ -6,7 +6,7 @@ const renderCtx = renderCanvas.getContext('2d');
 
 let worldMap;
 
-const cellSize = 10;
+const cellSize = 40;
 const mapHeight = 15;
 const mapWidth = 15;
 const viewWidth = 720;
@@ -421,7 +421,7 @@ function drawCollision()
 		
 			ctx.fillStyle = '#FE2836';
 			ctx.beginPath();
-			ctx.arc(colX, colY, 3, 0, 2 * Math.PI);
+			ctx.arc(colX, colY, 1, 0, 2 * Math.PI);
 			ctx.fill();
 		}
 	}
