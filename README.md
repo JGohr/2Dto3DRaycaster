@@ -1,5 +1,5 @@
 # Tile Map Raycaster
-A tile based raycaster implemented in vanilla javscript
+A tile based raycaster implemented in vanilla javscript.
 
 A written article and demo was compiled into a react app for this project, feel free to check that out here: (https://github.com/JGohr/Create-Your-Own-Raycaster)
 
@@ -7,7 +7,7 @@ A written article and demo was compiled into a react app for this project, feel 
 This project can be run in any modern web browser that supports javascript(ES6+).
 No pre-requisites required.
 
-#Acknowledgements
+# Acknowledgements
 I'd like to give a special shout out to a few creators for the inspiration and resources that aided in creating this project.
 
 * The Coding Train - (https://www.youtube.com/c/TheCodingTrain)
