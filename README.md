@@ -5,6 +5,7 @@ A written article and demo was compiled into a react app for this project, feel 
 
 # Getting Started
 This project can be run in any modern web browser that supports javascript(ES6+).
+
 No pre-requisites required.
 
 # Acknowledgements
